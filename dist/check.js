@@ -115,9 +115,18 @@
         return n;
     }
     function diffOf(id) { for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].id === id) return DIFFS[i]; } return DIFFS[1]; }
+    function autoDiffOf(sd) {
+        var s = String(getPath(sd, '任务与日志.任务世界.当前难度等级') || '').trim();
+        for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].label === s) return DIFFS[i].id; }
+        return 'normal';
+    }
+    function resolveDiff(sd, given) {
+        if (given && given !== 'auto') { for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].id === given) return given; } }
+        return autoDiffOf(sd);
+    }
     function doRoll(skill, diffId) {
         var sd = readStatData() || {};
-        var diff = diffOf(diffId);
+        var diff = diffOf(resolveDiff(sd, diffId));
         var tier = tierOf(sd);
         var line = lineOf(tier) + diff.mod;
         var power = powerOf(sd, skill);
@@ -169,8 +178,9 @@
         var intent = t.replace(/\[判定[:：][^\]]*\]/g, '').replace(/［判定[:：][^］]*］/g, '').trim();
         var parts = [];
         t.replace(re, function (all, skill, dl) {
-            var diffId = 'normal';
-            for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].label === String(dl || '').trim()) diffId = DIFFS[i].id; }
+            var dl2 = String(dl || '').trim();
+            var diffId = 'auto';
+            for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].label === dl2) diffId = DIFFS[i].id; }
             var rec = doRoll(resolveSkill(skill), diffId);
             gainFateOnAccept(rec);
             logCheck(rec, intent);
@@ -214,7 +224,7 @@
             bar.addEventListener('click', function (e) {
                 var chip = e.target.closest('.mx-chk-chip');
                 if (!chip) return;
-                openRollModal(chip.getAttribute('data-skill'), '', 'normal');
+                openRollModal(chip.getAttribute('data-skill'), '', 'auto');
             });
         }
     }
@@ -229,7 +239,7 @@
     function openRollModal(skill, intent, diffId) {
         closeModal();
         var sd = readStatData() || {};
-        chkState = { skill: skill, diffId: diffId || 'normal', intent: intent || '', rec: null, fate: getFate(sd), rolling: false };
+        chkState = { skill: skill, diffId: resolveDiff(sd, diffId), intent: intent || '', rec: null, fate: getFate(sd), rolling: false };
         var modal = document.createElement('div');
         modal.className = 'mx-chk-modal';
         modal.id = 'mx-chk-modal';
@@ -335,13 +345,15 @@
         if (!chkState) return;
         var sd = readStatData() || {};
         var tier = tierOf(sd);
-        var line = lineOf(tier) + diffOf(chkState.diffId).mod;
+        var curDiff = diffOf(chkState.diffId);
+        var isAuto = (chkState.diffId === autoDiffOf(sd));
+        var line = lineOf(tier) + curDiff.mod;
         var power = powerOf(sd, chkState.skill);
         var rate = successRate(power, line);
         var pEl = document.getElementById('mx-chk-power');
         var aEl = document.getElementById('mx-chk-attr');
         if (pEl) pEl.textContent = power;
-        if (aEl) aEl.textContent = '（' + (SKILLS[chkState.skill] ? SKILLS[chkState.skill].attr : '智力') + ' · 档位' + tier + (tierIsOverride() ? '·手动' : '') + '）';
+        if (aEl) aEl.textContent = '（' + (SKILLS[chkState.skill] ? SKILLS[chkState.skill].attr : '智力') + ' · 档位' + tier + (tierIsOverride() ? '·手动' : '') + ' · ' + curDiff.label + (isAuto ? '·场景' : '·手动') + '）';
         var rEl = document.getElementById('mx-chk-rate');
         if (rEl) rEl.innerHTML = '难度线 <b>' + line + '</b> ｜ 成功率 <b>' + rate + '%</b> ｜ 命运点 <b>' + chkState.fate + '</b>/' + FATE_MAX;
     }
@@ -419,6 +431,8 @@
         var sd = readStatData() || {};
         var tier = tierOf(sd);
         var tierLine = lineOf(tier);
+        var autoDiffId = autoDiffOf(sd);
+        var autoDiff = diffOf(autoDiffId);
         var fate = getFate(sd);
         var fateDots = '';
         for (var i = 0; i < FATE_MAX; i++) fateDots += (i < fate ? '●' : '○');
@@ -450,9 +464,10 @@
         }
         el.innerHTML =
             '<div class="neb-card"><div class="neb-card-title">副本难度</div>' +
-            '<div class="mx-chk-tierline">当前档位 <b class="mx-chk-tierbadge tb-' + tier + '">' + tier + '</b> 基础难度线 <b>' + tierLine + '</b>' +
+            '<div class="mx-chk-tierline">副本档位 <b class="mx-chk-tierbadge tb-' + tier + '">' + tier + '</b> 基础难度线 <b>' + tierLine + '</b>' +
             (tierIsOverride() ? '<span class="mx-chk-ov">（手动覆盖）</span>' : '<span class="mx-chk-ov">（来自 MVU 副本难度）</span>') + '</div>' +
-            '<div class="mx-chk-hint">档位由 AI 维护于 任务与日志.任务世界.副本难度（E/D/C/B/A/S）；B/A 档难度线 ×1.25，S 档 ×1.5。可在掷骰面板临时覆盖。</div></div>' +
+            '<div class="mx-chk-tierline">当前场景难度 <b>' + autoDiff.label + '</b>（行动修正 ' + (autoDiff.mod > 0 ? '+' : '') + autoDiff.mod + '）<span class="mx-chk-ov">（来自 MVU 当前难度等级；选项标签可覆盖）</span></div>' +
+            '<div class="mx-chk-hint">副本档位由 AI 维护于 任务与日志.任务世界.副本难度（E/D/C/B/A/S，B/A 档难度线 ×1.25，S 档 ×1.5）；场景难度由 AI 维护于 任务与日志.任务世界.当前难度等级（轻松/常规/艰难/孤注一掷），随场景紧张度变化。</div></div>' +
             '<div class="neb-card"><div class="neb-card-title">六维判定力</div><div class="neb-attr-grid">' + attrHtml + '</div></div>' +
             '<div class="neb-card"><div class="neb-card-title">技能总览 <span class="mx-chk-sub">常规难度 · 对当前副本线</span></div>' +
             '<div class="mx-chk-srows">' + rows + '</div></div>' +
@@ -472,8 +487,8 @@
             e.stopPropagation();
             e.preventDefault();
             var diffLabel = String(m[2] || '').trim();
-            var diffId = 'normal';
-            for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].label === diffLabel) diffId = DIFFS[i].id; }
+            var diffId = '';
+            if (diffLabel) { for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].label === diffLabel) diffId = DIFFS[i].id; } }
             var intent = opt.replace(/\s*[［[]判定[:：][^\]］]*[\]］]\s*/g, '').trim();
             openRollModal(resolveSkill(m[1].trim()), intent, diffId);
         }, true);
