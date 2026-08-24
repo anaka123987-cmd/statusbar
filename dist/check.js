@@ -77,12 +77,49 @@
 
     /* ---------- 数值核心 ---------- */
     function attrOf(sd, name) { return Math.round(num(getPath(sd, '个人档案.战斗属性.' + name), 10)); }
+    function arrOf(x) { if (Array.isArray(x)) return x; if (x && typeof x === 'object') return Object.keys(x).map(function (k) { return x[k]; }); return []; }
+    function activeQuestOf(sd) {
+        var tl = getPath(sd, '任务与日志.任务列表');
+        if (!tl) return null;
+        var groups = arrOf(tl.分组);
+        if (!groups.length) return null;
+        var i, j, g, items, it;
+        for (i = 0; i < groups.length; i++) {
+            g = groups[i]; if (!g) continue;
+            items = arrOf(g.条目);
+            for (j = 0; j < items.length; j++) {
+                var x = items[j]; if (!x) continue;
+                var st = String(x.状态 || x.status || '');
+                if (/进行中|当前|活跃|ongoing|active|current/i.test(st)) return x;
+            }
+        }
+        for (i = 0; i < groups.length; i++) {
+            g = groups[i]; if (!g) continue;
+            if (String(g.组名 || '').indexOf('主线') >= 0) {
+                it = arrOf(g.条目);
+                if (it.length) return it[0];
+            }
+        }
+        it = arrOf(groups[0] && groups[0].条目);
+        if (it.length) return it[0];
+        return null;
+    }
+    function questDiffMap(letter) {
+        var t = { E: 'easy', D: 'easy', C: 'normal', B: 'hard', A: 'desp', S: 'desp' };
+        return t[letter] || null;
+    }
     function tierOf(sd) {
         var ov = lsGet().tier;
         if (ov && TIER_VAL[ov]) return ov;
-        var t = String(getPath(sd, '任务与日志.任务世界.副本难度') || '').trim().toUpperCase();
+        var t = String(getPath(sd, '任务与日志.任务世界.当前难度等级') || '').trim().toUpperCase();
         var m = t.match(/^([EDCBAS])/) || t.match(/([EDCBAS])\s*(?:级|档)/);
         if (m && TIER_VAL[m[1]]) return m[1];
+        var q = activeQuestOf(sd);
+        if (q) {
+            var qd = String(q.难度 || '').trim().toUpperCase();
+            var qm = qd.match(/^([EDCBAS])/) || qd.match(/([EDCBAS])/);
+            if (qm && TIER_VAL[qm[1]]) return qm[1];
+        }
         return 'C';
     }
     function tierIsOverride() { var ov = lsGet().tier; return !!(ov && TIER_VAL[ov]); }
@@ -116,10 +153,15 @@
     }
     function diffOf(id) { for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].id === id) return DIFFS[i]; } return DIFFS[1]; }
     function autoDiffOf(sd) {
-        var s = String(getPath(sd, '任务与日志.任务世界.当前难度等级') || '').trim();
-        for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].label === s) return DIFFS[i].id; }
+        var q = activeQuestOf(sd);
+        if (q) {
+            var d = String(q.难度 || '').trim().toUpperCase();
+            var m = d.match(/^([EDCBAS])/) || d.match(/([EDCBAS])/);
+            if (m) { var mid = questDiffMap(m[1]); if (mid) return mid; }
+        }
         return 'normal';
     }
+    function activeQuestName(sd) { var q = activeQuestOf(sd); return q ? (q.任务名称 || q.name || '') : ''; }
     function resolveDiff(sd, given) {
         if (given && given !== 'auto') { for (var i = 0; i < DIFFS.length; i++) { if (DIFFS[i].id === given) return given; } }
         return autoDiffOf(sd);
@@ -353,7 +395,7 @@
         var pEl = document.getElementById('mx-chk-power');
         var aEl = document.getElementById('mx-chk-attr');
         if (pEl) pEl.textContent = power;
-        if (aEl) aEl.textContent = '（' + (SKILLS[chkState.skill] ? SKILLS[chkState.skill].attr : '智力') + ' · 档位' + tier + (tierIsOverride() ? '·手动' : '') + ' · ' + curDiff.label + (isAuto ? '·场景' : '·手动') + '）';
+        if (aEl) aEl.textContent = '（' + (SKILLS[chkState.skill] ? SKILLS[chkState.skill].attr : '智力') + ' · 档位' + tier + (tierIsOverride() ? '·手动' : '') + ' · ' + curDiff.label + (isAuto ? '·任务' : '·手动') + '）';
         var rEl = document.getElementById('mx-chk-rate');
         if (rEl) rEl.innerHTML = '难度线 <b>' + line + '</b> ｜ 成功率 <b>' + rate + '%</b> ｜ 命运点 <b>' + chkState.fate + '</b>/' + FATE_MAX;
     }
@@ -433,6 +475,7 @@
         var tierLine = lineOf(tier);
         var autoDiffId = autoDiffOf(sd);
         var autoDiff = diffOf(autoDiffId);
+        var qName = activeQuestName(sd);
         var fate = getFate(sd);
         var fateDots = '';
         for (var i = 0; i < FATE_MAX; i++) fateDots += (i < fate ? '●' : '○');
@@ -465,9 +508,9 @@
         el.innerHTML =
             '<div class="neb-card"><div class="neb-card-title">副本难度</div>' +
             '<div class="mx-chk-tierline">副本档位 <b class="mx-chk-tierbadge tb-' + tier + '">' + tier + '</b> 基础难度线 <b>' + tierLine + '</b>' +
-            (tierIsOverride() ? '<span class="mx-chk-ov">（手动覆盖）</span>' : '<span class="mx-chk-ov">（来自 MVU 副本难度）</span>') + '</div>' +
-            '<div class="mx-chk-tierline">当前场景难度 <b>' + autoDiff.label + '</b>（行动修正 ' + (autoDiff.mod > 0 ? '+' : '') + autoDiff.mod + '）<span class="mx-chk-ov">（来自 MVU 当前难度等级；选项标签可覆盖）</span></div>' +
-            '<div class="mx-chk-hint">副本档位由 AI 维护于 任务与日志.任务世界.副本难度（E/D/C/B/A/S，B/A 档难度线 ×1.25，S 档 ×1.5）；场景难度由 AI 维护于 任务与日志.任务世界.当前难度等级（轻松/常规/艰难/孤注一掷），随场景紧张度变化。</div></div>' +
+            (tierIsOverride() ? '<span class="mx-chk-ov">（手动覆盖）</span>' : '<span class="mx-chk-ov">（来自 任务世界.当前难度等级）</span>') + '</div>' +
+            '<div class="mx-chk-tierline">当前任务 <b>' + esc(qName || '未检测到') + '</b>' + (qName ? ' → 派生场景难度 <b>' + autoDiff.label + '</b>（行动修正 ' + (autoDiff.mod > 0 ? '+' : '') + autoDiff.mod + '）' : '') + '</div>' +
+            '<div class="mx-chk-hint">副本档位由 AI 维护于 任务与日志.任务世界.当前难度等级（E/D/C/B/A/S，B/A 档难度线 ×1.25、S 档 ×1.5）；场景难度由前端识别 任务列表 中<b>状态为"进行中"</b>的任务、按其 难度 映射（E/D→轻松、C→常规、B→艰难、A/S→孤注一掷）。选项标签 [判定:技能\|难度] 可临时覆盖。</div></div>' +
             '<div class="neb-card"><div class="neb-card-title">六维判定力</div><div class="neb-attr-grid">' + attrHtml + '</div></div>' +
             '<div class="neb-card"><div class="neb-card-title">技能总览 <span class="mx-chk-sub">常规难度 · 对当前副本线</span></div>' +
             '<div class="mx-chk-srows">' + rows + '</div></div>' +
