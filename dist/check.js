@@ -291,9 +291,8 @@
             '<div class="mx-chk-head"><span class="mx-chk-title"><span class="dot"></span>跑团判定 · ' + esc(skill) + '</span>' +
             '<button class="mx-chk-close" type="button"><i class="fa-solid fa-xmark"></i></button></div>' +
             '<div class="mx-chk-body">' +
-            '<div class="mx-chk-skillrow"><span class="mx-chk-skillmeta">判定力 <b id="mx-chk-power">-</b><span id="mx-chk-attr"></span></span>' +
-            '<span class="mx-chk-tierwrap">副本档位 <select id="mx-chk-tier" class="mx-chk-tier"><option value="">自动</option><option>E</option><option>D</option><option>C</option><option>B</option><option>A</option><option>S</option></select></span></div>' +
-            '<div class="mx-chk-diffs" id="mx-chk-diffs"></div>' +
+            '<div class="mx-chk-skillrow"><span class="mx-chk-skillmeta">判定力 <b id="mx-chk-power">-</b><span id="mx-chk-attr"></span></span></div>' +
+            '<div class="mx-chk-context" id="mx-chk-context"></div>' +
             '<textarea class="mx-chk-intent" id="mx-chk-intent" rows="2" placeholder="判定意图：想达成什么？（将随结果一起交给 AI 演绎）"></textarea>' +
             '<div class="mx-chk-rate" id="mx-chk-rate"></div>' +
             '<button class="mx-chk-rollbtn" id="mx-chk-rollbtn" type="button"><i class="fa-solid fa-dice"></i> 掷骰</button>' +
@@ -311,33 +310,6 @@
             '</div></div>' +
             '</div></div>';
         document.body.appendChild(modal);
-
-        var diffBox = modal.querySelector('#mx-chk-diffs');
-        var dh = '';
-        DIFFS.forEach(function (d) {
-            dh += '<button type="button" class="mx-chk-diff' + (d.id === chkState.diffId ? ' active' : '') + '" data-diff="' + d.id + '">' + d.label + (d.mod ? ' ' + (d.mod > 0 ? '+' : '') + d.mod : '') + '</button>';
-        });
-        diffBox.innerHTML = dh;
-        diffBox.addEventListener('click', function (e) {
-            var b = e.target.closest('.mx-chk-diff');
-            if (!b || chkState.rolling) return;
-            chkState.diffId = b.getAttribute('data-diff');
-            diffBox.querySelectorAll('.mx-chk-diff').forEach(function (x) { x.classList.remove('active'); });
-            b.classList.add('active');
-            hideResult();
-            updateRate();
-        });
-
-        var tierSel = modal.querySelector('#mx-chk-tier');
-        var ov = lsGet().tier;
-        tierSel.value = (ov && TIER_VAL[ov]) ? ov : '';
-        tierSel.addEventListener('change', function () {
-            var o = lsGet();
-            if (tierSel.value) o.tier = tierSel.value; else delete o.tier;
-            lsSet(o);
-            hideResult();
-            updateRate();
-        });
 
         modal.querySelector('#mx-chk-intent').value = chkState.intent;
         modal.querySelector('#mx-chk-intent').addEventListener('input', function () { chkState.intent = this.value; });
@@ -388,14 +360,21 @@
         var sd = readStatData() || {};
         var tier = tierOf(sd);
         var curDiff = diffOf(chkState.diffId);
-        var isAuto = (chkState.diffId === autoDiffOf(sd));
+        var autoId = autoDiffOf(sd);
+        var isAuto = (chkState.diffId === autoId);
         var line = lineOf(tier) + curDiff.mod;
         var power = powerOf(sd, chkState.skill);
         var rate = successRate(power, line);
         var pEl = document.getElementById('mx-chk-power');
         var aEl = document.getElementById('mx-chk-attr');
         if (pEl) pEl.textContent = power;
-        if (aEl) aEl.textContent = '（' + (SKILLS[chkState.skill] ? SKILLS[chkState.skill].attr : '智力') + ' · 档位' + tier + (tierIsOverride() ? '·手动' : '') + ' · ' + curDiff.label + (isAuto ? '·任务' : '·手动') + '）';
+        if (aEl) aEl.textContent = '（' + (SKILLS[chkState.skill] ? SKILLS[chkState.skill].attr : '智力') + '）';
+        var ctxEl = document.getElementById('mx-chk-context');
+        if (ctxEl) {
+            var qName = activeQuestName(sd);
+            var src = isAuto ? (qName ? '当前任务：' + esc(qName) : '当前任务派生') : 'AI 选项标签指定';
+            ctxEl.innerHTML = '副本档位 <b class="mx-chk-tierbadge tb-' + tier + '">' + tier + '</b> 场景难度 <b>' + curDiff.label + '</b>（' + (curDiff.mod > 0 ? '+' : '') + curDiff.mod + '）<span class="mx-chk-ov">（' + src + '）</span>';
+        }
         var rEl = document.getElementById('mx-chk-rate');
         if (rEl) rEl.innerHTML = '难度线 <b>' + line + '</b> ｜ 成功率 <b>' + rate + '%</b> ｜ 命运点 <b>' + chkState.fate + '</b>/' + FATE_MAX;
     }
