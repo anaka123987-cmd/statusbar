@@ -30,6 +30,10 @@ https://www.jsdelivr.com/tools/purge 手动清缓存。
 
 ## 历史版本
 
+- v1.1：修复分组开合存储反转 bug
+  - 旧版 `collapsed` 存的是点击前状态的反值，导致展开/收起后遇到全量重渲染（如打开队友详情）时分组翻转
+  - 附带一次性迁移：历史反转值在启动时自动翻转回正确状态
+  - 点击队友卡改为定向更新（卡片选中态 + 详情面板），不再整页重渲染，基础页分组状态与动画不受打扰
 - v1 (本仓库初版)：由 603KB 内嵌版去重拆分而来
   - 删除被覆盖的死代码：renderShop/renderBag/renderExchange/mxUndoPurchase 各自的旧版本（约 220 行）
   - 提取公共组件：`mxClone()`（12 处内联深拷贝）、`mxViaInput()`（3 处 viaInput 闭包）

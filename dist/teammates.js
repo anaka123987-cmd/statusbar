@@ -451,7 +451,7 @@
                     var db = loadDB();
                     db.ui = db.ui || { collapsed: {} };
                     db.ui.collapsed = db.ui.collapsed || {};
-                    db.ui.collapsed[gid] = !grp.classList.contains('open');
+                    db.ui.collapsed[gid] = grp.classList.contains('open');
                     saveDB(db);
                     grp.classList.toggle('open');   /* 不整页重渲染，动画更顺滑 */
                     return;
@@ -468,7 +468,11 @@
                 var name = memberEl.getAttribute('data-name');
                 selectedName = (selectedName === name) ? null : name;   /* 再次点击收起 */
                 confirmingMember = false;
-                render();
+                /* 只更新卡片选中态与详情面板，不整页重渲染：分组开合状态与动画不受打扰 */
+                document.querySelectorAll('#tm-body .tm-member').forEach(function (cardEl) {
+                    cardEl.classList.toggle('active', cardEl.getAttribute('data-name') === selectedName);
+                });
+                renderDetail(loadDB());
                 var det = document.getElementById('tm-detail');
                 if (det && selectedName && det.scrollIntoView) {
                     try { det.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (err) {}
@@ -786,8 +790,21 @@
     window.__tmInternals = { extractStu: extractStu, parseMembers: parseMembers, loadDB: loadDB, saveDB: saveDB, syncFromMessage: syncFromMessage, tmMatchUnit: tmMatchUnit, tmSnapshotUnit: tmSnapshotUnit, tmSyncCombat: tmSyncCombat, renderCombatBlock: renderCombatBlock };
     window.__mxTeammatesRefresh = function() { lastRawText = null; tick(); };
 
+    /* ---------- 旧版开合存储反转修复：一次性翻转历史值（带版本标记，仅翻转被旧代码写过的键） ---------- */
+    function migrateToggleFix() {
+        try {
+            var db = loadDB();
+            var coll = db.ui && db.ui.collapsed;
+            if (!coll || db.ui.toggleFixV2) return;
+            Object.keys(coll).forEach(function (k) { coll[k] = !coll[k]; });
+            db.ui.toggleFixV2 = true;
+            saveDB(db);
+        } catch (e) {}
+    }
+
     /* ---------- 启动 ---------- */
     function boot() {
+        migrateToggleFix();
         bindStatic();
         bindChatChange();
         scanAllFloors();
