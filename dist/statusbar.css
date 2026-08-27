@@ -4100,6 +4100,10 @@ body.mx-started .mx-overlay{display:none!important}
 /* —— 表单元素盒模型修复：原 width:100%/140px 均为 content-box，加 padding/边框后横向溢出 15-41px（手机表单越界、桌面步骤按钮右探的根因） —— */
 #mx-create-overlay input,#mx-create-overlay select,#mx-create-overlay textarea,#mx-create-overlay button,#mx-create-overlay .mx-output{box-sizing:border-box}
 
+/* —— v1.3.3 视口不可信兜底：iframe/WebView 布局视口可能固定 980px，媒体查询会说谎。
+   开场两页改为容器查询驱动（按元素实际渲染宽度决定布局），并无条件允许纵向滚动 —— */
+#mx-title-overlay,#mx-create-overlay{overflow-y:auto;-webkit-overflow-scrolling:touch;container-type:inline-size}
+
 /* —— 性能降级：≤1024 停用常驻动画与高频闪烁 —— */
 @media(max-width:1024px){
   #mx-console .mx-title .dot,#mx-console .neb-title .dot,#mx-console .tm-title .dot{animation:none}
@@ -4123,7 +4127,7 @@ body.mx-started .mx-overlay{display:none!important}
 }
 
 /* —— 开场两页：平板（≤980），高度自适应解除固定 —— */
-@media(max-width:980px){
+@media(max-width:980px),(max-device-width:980px){
   #mx-title-overlay{height:auto;min-height:460px;border-radius:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,0px)}
   #mx-title-overlay .mx-o-view{position:relative;inset:auto;min-height:0;padding:32px 26px}
   #mx-title-overlay .mx-title-layout{height:auto;min-height:380px;grid-template-columns:minmax(0,1fr) 280px;gap:24px}
@@ -4146,7 +4150,7 @@ body.mx-started .mx-overlay{display:none!important}
 }
 
 /* —— 手机（≤760）—— */
-@media(max-width:760px){
+@media(max-width:760px),(max-device-width:760px){
   /* 开场·标题页：单列流式 */
   #mx-title-overlay{border-radius:16px;min-height:0}
   #mx-title-overlay .mx-o-view{padding:26px 18px}
@@ -4253,9 +4257,73 @@ body.mx-started .mx-overlay{display:none!important}
 }
 
 /* —— 紧凑（≤440）—— */
-@media(max-width:440px){
+@media(max-width:440px),(max-device-width:440px){
   #mx-create-overlay .mx-grid{grid-template-columns:1fr}
   #mx-console .mx-tab{font-size:10.5px}
   #mx-console .mx-content-box{font-size:13.5px}
   .mx-chk-num{font-size:38px}
+}
+
+/* ===== v1.3.3 容器查询：开场两页按自身实际宽度竖排（视口媒体查询失效时的最终保障） ===== */
+@container (max-width:980px){
+  /* 平板：两列/三列收窄，高度自适应 */
+  #mx-title-overlay .mx-title-layout{height:auto;min-height:380px;grid-template-columns:minmax(0,1fr) 280px;gap:24px}
+  #mx-title-overlay .mx-game-title{font-size:clamp(44px,6vw,64px)}
+  #mx-title-overlay .mx-title-copy{width:auto;max-width:448px}
+  #mx-title-overlay .mx-panel{width:100%;max-width:620px;margin:40px auto 0;padding:30px}
+  #mx-create-overlay .mx-shell{height:auto;min-height:0;grid-template-columns:150px minmax(0,1fr) 250px;gap:14px;padding:20px}
+  #mx-create-overlay .mx-card{backdrop-filter:none;-webkit-backdrop-filter:none}
+  #mx-create-overlay .mx-side{height:auto;min-height:0;padding:16px}
+  #mx-create-overlay .mx-step{width:100%}
+  #mx-create-overlay .mx-actions .mx-soft-btn{width:100%}
+  #mx-create-overlay .mx-main{height:auto;min-height:0}
+  #mx-create-overlay .mx-view{height:auto;min-height:0}
+  #mx-create-overlay .mx-preview{height:auto;min-height:0}
+  #mx-create-overlay .mx-preview-body{height:auto;max-height:440px}
+  #mx-create-overlay .mx-status{height:auto;min-height:56px}
+}
+@container (max-width:760px){
+  /* 手机：全面竖排 */
+  #mx-title-overlay .mx-o-view{padding:26px 18px}
+  #mx-title-overlay .mx-title-layout{grid-template-columns:1fr;gap:20px;min-height:0;align-items:start}
+  #mx-title-overlay .mx-kicker{font-size:11px;padding:7px 12px;letter-spacing:.12em}
+  #mx-title-overlay .mx-game-title{font-size:clamp(36px,11vw,52px);margin:18px 0 6px}
+  #mx-title-overlay .mx-author{font-size:12px;letter-spacing:.16em;margin-bottom:14px}
+  #mx-title-overlay .mx-title-copy{font-size:14px;line-height:1.8;margin-bottom:22px}
+  #mx-title-overlay .mx-btn{width:100%;height:50px;font-size:15px}
+  #mx-title-overlay .mx-ghost{margin:10px 0 0}
+  #mx-title-overlay .mx-signal-card{height:auto;min-height:0;padding:18px}
+  #mx-title-overlay .mx-node-ring{left:50%;top:26px;transform:translateX(-50%);width:140px;height:140px;margin:0}
+  #mx-title-overlay .mx-signal-list{position:relative;left:auto;right:auto;bottom:auto;margin:158px 0 0;gap:10px}
+  #mx-title-overlay .mx-signal-item{height:42px;font-size:12.5px}
+  #mx-title-overlay .mx-panel{padding:26px 20px;margin:0 auto}
+  #mx-title-overlay .mx-panel h2{font-size:22px}
+  #mx-create-overlay .mx-shell{grid-template-columns:1fr;height:auto;padding:14px;gap:14px}
+  #mx-create-overlay .mx-side{padding:14px;height:auto}
+  #mx-create-overlay .mx-logo{margin-bottom:8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  #mx-create-overlay .mx-logo span{margin-top:0}
+  #mx-create-overlay .mx-side nav{display:flex;gap:7px;overflow-x:auto;overflow-y:hidden;padding-bottom:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #mx-create-overlay .mx-side nav::-webkit-scrollbar{display:none}
+  #mx-create-overlay .mx-step{flex:0 0 auto;width:auto;height:38px;margin:0;padding:0 13px;white-space:nowrap;text-align:center;border-radius:12px}
+  #mx-create-overlay .mx-actions{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  #mx-create-overlay .mx-actions .mx-soft-btn{width:100%;height:42px;padding:0 6px;font-size:13px}
+  #mx-create-overlay .mx-main{padding:18px 14px;height:auto;overflow:visible}
+  #mx-create-overlay .mx-view{height:auto;overflow:visible;padding:0}
+  #mx-create-overlay h1{font-size:22px}
+  #mx-create-overlay .mx-sub{font-size:12.5px;margin-bottom:14px}
+  #mx-create-overlay .mx-grid{grid-template-columns:1fr 1fr;gap:9px}
+  #mx-create-overlay .mx-option{padding:12px;min-height:74px}
+  #mx-create-overlay .mx-option span{font-size:11.5px}
+  #mx-create-overlay .mx-attr-ctrl button{width:34px;height:34px}
+  #mx-create-overlay .mx-preview{padding:14px}
+  #mx-create-overlay .mx-preview-title{margin-bottom:10px;font-size:16px}
+  #mx-create-overlay .mx-preview.mx-collapsed .mx-preview-body,
+  #mx-create-overlay .mx-preview.mx-collapsed .mx-status{display:none}
+  #mx-create-overlay .mx-preview.mx-collapsed .mx-preview-toggle i{transform:rotate(-90deg)}
+  #mx-create-overlay .mx-preview-body{max-height:320px}
+  #mx-create-overlay .mx-output{height:120px;font-size:11px}
+}
+/* 预览折叠按钮在容器窄于 760 时也需显示（基础为 display:none） */
+@container (max-width:760px){
+  .mx-preview-toggle{display:inline-flex}
 }

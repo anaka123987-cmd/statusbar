@@ -4635,7 +4635,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
             var __mxMobileDone = false;
             function mxMobileInit() {
                 if (__mxMobileDone) return; __mxMobileDone = true;
-                var mq = window.matchMedia ? window.matchMedia('(max-width:1024px)') : null;
+                var mq = window.matchMedia ? window.matchMedia('(max-width:1024px),(max-device-width:1024px)') : null;
                 if (!mq) return;
                 var root = document.getElementById('mx-console');
                 if (!root) return;
