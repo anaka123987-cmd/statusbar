@@ -4372,6 +4372,7 @@ body.mx-started .mx-overlay{display:none!important}
 #mx-create-overlay.mx-m .mx-preview.mx-collapsed .mx-preview-toggle i{transform:rotate(-90deg)}
 #mx-create-overlay.mx-m .mx-output{height:120px;font-size:11px}
 
-/* 版本角标（用于确认客户端实际加载的版本） */
-#mx-title-overlay .mx-kicker span::after{content:" · v1.3.4";font-size:10px;letter-spacing:.05em;opacity:.55}
-#mx-create-overlay .mx-logo span::after{content:" · v1.3.4";font-size:10px;letter-spacing:.05em;opacity:.55}
+/* 版本角标（用于确认客户端实际加载的版本；data-diag 由视口纠偏脚本写入：
+   w=量得视口宽 s=屏幕物理短边 t/m=触屏/鼠标 vp=视口触发 dev=物理触发 off=未竖排） */
+#mx-title-overlay .mx-kicker span::after{content:" · v1.3.5" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
+#mx-create-overlay .mx-logo span::after{content:" · v1.3.5" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}

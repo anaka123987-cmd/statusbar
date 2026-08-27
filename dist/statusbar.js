@@ -1,6 +1,10 @@
 
-/* ===== v1.3.4 视口纠偏：桌面模式渲染下布局视口可能固定 980px，媒体/容器查询全部失效。
-      以 min(布局视口宽, visualViewport宽) 判定真实可视宽度，窄屏直接挂 .mx-m 类强制竖排 ===== */
+/* ===== v1.3.5 视口纠偏：酒馆沙盒 iframe 的布局视口可能固定 980px——媒体/容器查询与
+      min(innerWidth, visualViewport.width) 全部说谎（visualViewport 报的也是 CSS 像素，
+      布局视口钉死时它同样≈980，v1.3.4 由此失效）。
+      物理信号兜底：(pointer:coarse) 主输入为触屏 + screen 短边 ≤760（screen 反映真实
+      设备屏幕，不受 iframe 假视口影响）→ 无条件挂 .mx-m 强制竖排。
+      触屏笔记本主输入为鼠标，不会被误判；平板短边 >760 走原有视口断点。 ===== */
 (function(){
   function mxTrueWidth(){
     var w = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 1200;
@@ -8,11 +12,26 @@
     return w;
   }
   function apply(){
-    var on = mxTrueWidth() <= 760;
+    var w = mxTrueWidth();
+    var coarse = false;
+    try { coarse = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches); } catch (e) {}
+    var sw = (window.screen && window.screen.width) || 9999;
+    var sh = (window.screen && window.screen.height) || 9999;
+    var shortSide = Math.min(sw, sh);
+    var byViewport = w <= 760;
+    var byDevice = coarse && shortSide <= 760;
+    var on = byViewport || byDevice;
     var a = document.getElementById('mx-title-overlay');
     var b = document.getElementById('mx-create-overlay');
     if (a) a.classList.toggle('mx-m', on);
     if (b) b.classList.toggle('mx-m', on);
+    /* 诊断角标（写入两处版本角标的 data-diag）：w=量得视口宽 s=屏幕物理短边 t/m=触屏/鼠标 vp=视口触发 dev=物理触发 off=未竖排 */
+    var how = on ? (byDevice && !byViewport ? 'dev' : 'vp') : 'off';
+    var diag = ' w' + Math.round(w) + ' s' + (shortSide < 9999 ? Math.round(shortSide) : '?') + ' ' + (coarse ? 't' : 'm') + ' ' + how;
+    var ka = document.querySelector('#mx-title-overlay .mx-kicker span');
+    var kb = document.querySelector('#mx-create-overlay .mx-logo span');
+    if (ka) ka.setAttribute('data-diag', diag);
+    if (kb) kb.setAttribute('data-diag', diag);
     try { window.dispatchEvent(new Event('mx-m-change')); } catch (e) {}
   }
   apply();
