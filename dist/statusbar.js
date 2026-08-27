@@ -1,4 +1,26 @@
 
+/* ===== v1.3.4 视口纠偏：桌面模式渲染下布局视口可能固定 980px，媒体/容器查询全部失效。
+      以 min(布局视口宽, visualViewport宽) 判定真实可视宽度，窄屏直接挂 .mx-m 类强制竖排 ===== */
+(function(){
+  function mxTrueWidth(){
+    var w = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 1200;
+    try { if (window.visualViewport && window.visualViewport.width > 0) w = Math.min(w, window.visualViewport.width); } catch (e) {}
+    return w;
+  }
+  function apply(){
+    var on = mxTrueWidth() <= 760;
+    var a = document.getElementById('mx-title-overlay');
+    var b = document.getElementById('mx-create-overlay');
+    if (a) a.classList.toggle('mx-m', on);
+    if (b) b.classList.toggle('mx-m', on);
+    try { window.dispatchEvent(new Event('mx-m-change')); } catch (e) {}
+  }
+  apply();
+  window.addEventListener('resize', function(){ apply(); }, { passive: true });
+  window.addEventListener('orientationchange', function(){ setTimeout(apply, 250); });
+  try { if (window.visualViewport) window.visualViewport.addEventListener('resize', function(){ apply(); }); } catch (e) {}
+})();
+
 /* ===== OVERLAY VIEW SWITCHING ===== */
 (async function() {
   if (window.__mxOverlayInit) return;
@@ -133,9 +155,10 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
   if(!pv||!pt)return;
   pt.addEventListener('click',function(){pv.dataset.userToggled='1';var c=pv.classList.toggle('mx-collapsed');pt.setAttribute('aria-expanded',String(!c))});
   if(window.matchMedia){
-    var mq=window.matchMedia('(max-width:760px)');
-    var sync=function(){if(!pv.dataset.userToggled)pv.classList.toggle('mx-collapsed',mq.matches)};
-    try{mq.addEventListener('change',sync)}catch(e){try{mq.addListener(sync)}catch(e2){}}
+    var isMob=function(){var ov=document.getElementById('mx-create-overlay');return (ov&&ov.classList.contains('mx-m'))||window.matchMedia('(max-width:760px)').matches};
+    var sync=function(){if(!pv.dataset.userToggled)pv.classList.toggle('mx-collapsed',isMob())};
+    try{window.addEventListener('mx-m-change',sync)}catch(e){}
+    window.addEventListener('resize',sync,{passive:true});
     sync();
   }
 })();

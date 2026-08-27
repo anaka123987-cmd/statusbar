@@ -4327,3 +4327,51 @@ body.mx-started .mx-overlay{display:none!important}
 @container (max-width:760px){
   .mx-preview-toggle{display:inline-flex}
 }
+
+/* ===== v1.3.4 强制手机布局（.mx-m 类由 JS 依据 min(布局视口, visualViewport) 挂载，绕过一切媒体/容器查询） ===== */
+#mx-title-overlay.mx-m,#mx-create-overlay.mx-m{height:auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,0px)}
+#mx-title-overlay.mx-m .mx-o-view{position:relative;inset:auto;min-height:0;padding:26px 18px}
+#mx-title-overlay.mx-m .mx-title-layout{height:auto;min-height:0;grid-template-columns:1fr;gap:20px;align-items:start}
+#mx-title-overlay.mx-m .mx-kicker{font-size:11px;padding:7px 12px;letter-spacing:.12em}
+#mx-title-overlay.mx-m .mx-game-title{font-size:clamp(36px,11vw,52px);margin:18px 0 6px}
+#mx-title-overlay.mx-m .mx-author{font-size:12px;letter-spacing:.16em;margin-bottom:14px}
+#mx-title-overlay.mx-m .mx-title-copy{width:auto;max-width:none;font-size:14px;line-height:1.8;margin-bottom:22px}
+#mx-title-overlay.mx-m .mx-btn{width:100%;height:50px;font-size:15px}
+#mx-title-overlay.mx-m .mx-ghost{margin:10px 0 0}
+#mx-title-overlay.mx-m .mx-signal-card{height:auto;min-height:0;padding:18px}
+#mx-title-overlay.mx-m .mx-node-ring{left:50%;top:26px;transform:translateX(-50%);width:140px;height:140px;margin:0}
+#mx-title-overlay.mx-m .mx-signal-list{position:relative;left:auto;right:auto;bottom:auto;margin:158px 0 0;gap:10px}
+#mx-title-overlay.mx-m .mx-signal-item{height:42px;font-size:12.5px}
+#mx-title-overlay.mx-m .mx-panel{width:100%;max-width:620px;box-sizing:border-box;padding:26px 20px;margin:0 auto}
+#mx-title-overlay.mx-m .mx-panel h2{font-size:22px}
+#mx-create-overlay.mx-m .mx-shell{height:auto;min-height:0;grid-template-columns:1fr;padding:14px;gap:14px}
+#mx-create-overlay.mx-m .mx-card{backdrop-filter:none;-webkit-backdrop-filter:none}
+#mx-create-overlay.mx-m .mx-side{height:auto;min-height:0;padding:14px}
+#mx-create-overlay.mx-m .mx-logo{margin-bottom:8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+#mx-create-overlay.mx-m .mx-logo span{margin-top:0}
+#mx-create-overlay.mx-m .mx-side nav{display:flex;gap:7px;overflow-x:auto;overflow-y:hidden;padding-bottom:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+#mx-create-overlay.mx-m .mx-side nav::-webkit-scrollbar{display:none}
+#mx-create-overlay.mx-m .mx-step{flex:0 0 auto;width:auto;height:38px;margin:0;padding:0 13px;white-space:nowrap;text-align:center;border-radius:12px}
+#mx-create-overlay.mx-m .mx-actions{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+#mx-create-overlay.mx-m .mx-actions .mx-soft-btn{width:100%;height:42px;padding:0 6px;font-size:13px}
+#mx-create-overlay.mx-m .mx-main{height:auto;min-height:0;padding:18px 14px;overflow:visible}
+#mx-create-overlay.mx-m .mx-view{height:auto;min-height:0;overflow:visible;padding:0}
+#mx-create-overlay.mx-m h1{font-size:22px}
+#mx-create-overlay.mx-m .mx-sub{font-size:12.5px;margin-bottom:14px}
+#mx-create-overlay.mx-m .mx-grid{grid-template-columns:1fr 1fr;gap:9px}
+#mx-create-overlay.mx-m .mx-option{padding:12px;min-height:74px}
+#mx-create-overlay.mx-m .mx-option span{font-size:11.5px}
+#mx-create-overlay.mx-m .mx-attr-ctrl button{width:34px;height:34px}
+#mx-create-overlay.mx-m .mx-preview{height:auto;min-height:0;padding:14px}
+#mx-create-overlay.mx-m .mx-preview-title{margin-bottom:10px;font-size:16px}
+#mx-create-overlay.mx-m .mx-preview-body{height:auto;max-height:320px}
+#mx-create-overlay.mx-m .mx-status{height:auto;min-height:56px}
+#mx-create-overlay.mx-m .mx-preview-toggle{display:inline-flex}
+#mx-create-overlay.mx-m .mx-preview.mx-collapsed .mx-preview-body,
+#mx-create-overlay.mx-m .mx-preview.mx-collapsed .mx-status{display:none}
+#mx-create-overlay.mx-m .mx-preview.mx-collapsed .mx-preview-toggle i{transform:rotate(-90deg)}
+#mx-create-overlay.mx-m .mx-output{height:120px;font-size:11px}
+
+/* 版本角标（用于确认客户端实际加载的版本） */
+#mx-title-overlay .mx-kicker span::after{content:" · v1.3.4";font-size:10px;letter-spacing:.05em;opacity:.55}
+#mx-create-overlay .mx-logo span::after{content:" · v1.3.4";font-size:10px;letter-spacing:.05em;opacity:.55}
