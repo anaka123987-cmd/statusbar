@@ -127,6 +127,18 @@ function userInfoContent(p){return 'user信息:\n  姓名: '+p.姓名+'\n  代�
     return '世界书已同步'
   }async function createOpening(){await waitGlobalInitialized('Mvu');var p=profile(),msg=tpl(OPENING_TEMPLATE,p),sd;el('profileOutput').value='【多维矩阵角色创建档案】\n'+JSON.stringify(p,null,2)+'\n\n【开场白】\n'+msg;try{sd=statFromForm(p)}catch(e){note('读取0层 InitVar 失败：'+(e.message||e));return}try{var wbMsg=await syncWorldbook(p);note(wbMsg+'；正在创建第1层消息...')}catch(wbErr){note('世界书同步失败：'+(wbErr.message||wbErr)+'；继续创建第1层消息。')}try{await createChatMessages([{role:'assistant',message:msg,data:{stat_data:sd}}],{refresh:'none'});note('已创建第1层开场消息。');await eventEmit('mx:pseudo-layer-updated',msg,sd);if(window.__mxEnterMain)window.__mxEnterMain(msg,sd)}catch(e2){note('createChatMessages 调用失败：'+(e2.message||e2))}}
 function init(){fill('identitySelect',identities);fill('skillSelect',skills);fill('alignmentSelect',alignments);fill('dungeonSelect',dungeons);resetAttrs();['nameInput','codeInput','genderInput','ageInput','locInput','identitySelect','customIdentity','eraInput','customEra','regionInput','lastMemory','obsession','flaw','directionSelect','customDirection','energySelect','customEnergy','skillSelect','customSkill','alignmentSelect','dungeonSelect','customDungeon','combatSelect','exploreSelect','socialSelect'].forEach(function(id){var n=el(id);if(n)n.oninput=updatePreview});document.querySelectorAll('.mx-step').forEach(function(b,i){b.onclick=function(){state.step=i;render()}});el('prevStep').onclick=function(){state.step=Math.max(0,state.step-1);render()};el('nextStep').onclick=function(){state.step=Math.min(steps.length-1,state.step+1);render()};el('attrList').onclick=function(e){var b=e.target.closest('button');if(!b)return;var a=b.getAttribute('data-attr'),d=Number(b.getAttribute('data-delta')),st=stageData[state.stage];if(d>0&&spent()>=st.points)return;if(d<0&&state.attrs[a]<=st.min)return;if(d>0&&state.attrs[a]>=st.max)return;state.attrs[a]+=d;renderAttrs();updatePreview()};el('randomAll').onclick=function(){state.stage=pick(Object.keys(stageData));resetAttrs();state.entry=pick(entryTypes);state.enhance=pick(Object.keys(enhanceTypes));state.direction=pick(enhanceTypes[state.enhance].filter(function(x){return x!=='自定义'}));el('identitySelect').value=pick(identities.filter(function(x){return x!=='自定义'}));el('genderInput').value=pick(['男','女','非公开']);el('ageInput').value=18+Math.floor(Math.random()*30);el('eraInput').value=pick(['现代都市','近未来','废土时代','低魔中古','高魔纪元','星际时代']);el('skillSelect').value=pick(skills.filter(function(x){return x!=='自定义'}));el('alignmentSelect').value=pick(alignments);el('dungeonSelect').value=pick(dungeons.filter(function(x){return x!=='自定义'}));render()};el('makeProfile').onclick=createOpening;el('sendInput').onclick=function(){var p=profile(),text='【多维矩阵角色创建档案】\n'+JSON.stringify(p,null,2);el('profileOutput').value=text;var fn=null;try{fn=window.triggerSlash||(window.parent&&window.parent.triggerSlash)}catch(e){}if(fn){fn('/setinput '+text);note('已尝试填入酒馆输入框，请检查后发送。')}else note('未检测到 /setinput API，请手动查看档案摘要。')};render()}init();
+/* ===== 小屏：实时档案折叠 ===== */
+(function(){
+  var pv=document.querySelector('#mx-create-overlay .mx-preview'),pt=el('previewToggle');
+  if(!pv||!pt)return;
+  pt.addEventListener('click',function(){pv.dataset.userToggled='1';var c=pv.classList.toggle('mx-collapsed');pt.setAttribute('aria-expanded',String(!c))});
+  if(window.matchMedia){
+    var mq=window.matchMedia('(max-width:760px)');
+    var sync=function(){if(!pv.dataset.userToggled)pv.classList.toggle('mx-collapsed',mq.matches)};
+    try{mq.addEventListener('change',sync)}catch(e){try{mq.addListener(sync)}catch(e2){}}
+    sync();
+  }
+})();
 })();
 
 /* ===== MAIN STATUS BAR LOGIC ===== */
@@ -2201,7 +2213,9 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 var bal = parsePrice(mxGetBalance(d));
                 var bagList = getRaw(d, '背包与商城.背包.物品列表', {});
                 var ses = shopState.session;
-                var arr = [];
+                var sub = shopState.sub || 'normal';
+                var arr = [], f = null, shopList = '', recHtml = '';
+                if (sub === 'normal') {
                 if (shop && typeof shop === 'object') {
                     Object.keys(shop).forEach(function (name) {
                         var info = shop[name];
@@ -2214,9 +2228,9 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                         }
                     });
                 }
-                var f = mxFilterItems(arr, shopState);
+                f = mxFilterItems(arr, shopState);
                 shopState.list = f.list;
-                var shopList = '';
+                shopList = '';
                 f.list.forEach(function (it, idx) {
                     var typeTxt = mxTypeText(it);
                     var desc = mxDescText(it);
@@ -2243,14 +2257,16 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 });
                 if (!f.list.length) shopList = '<div class="mxs-empty">' + (arr.length ? '没有匹配的商品，试试换个关键词或分类' : '暂无商品') + '</div>';
                 var recs = mxShopRecords();
-                var recHtml = recs.length ? '<div class="mxs-records"><span class="mxs-rec-title">最近购买</span>' +
+                recHtml = recs.length ? '<div class="mxs-records"><span class="mxs-rec-title">最近购买</span>' +
                     recs.slice(0, 8).map(function (r) {
                         return '<span class="mxs-record"><i class="fa-solid fa-clock-rotate-left"></i>' + esc(r.name) + '</span>';
                     }).join('') + '</div>' : '';
+                }
                 var facUnlock = getRaw(d, '背包与商城.商城.阵营商店（仅当有阵营时显示）.解锁商品列表', []);
                 var facLevel = getValue(d, '主页.所属主神好感度.文本', '-');
                 var facShopGoods = getRaw(d, '背包与商城.商城.商品列表', {}) || {};
                 var facHtml = '';
+                if (sub === 'faction') {
                 Object.keys(facShopGoods).forEach(function (n) {
                     if (mxChannelOf(facShopGoods[n]) !== 'faction') return;
                     var g = facShopGoods[n];
@@ -2267,7 +2283,9 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                             typeof x === 'object' ? JSON.stringify(x) : x) + '</div>'; });
                 }
                 if (!facHtml) { facHtml = '<div class="neb-empty">当前好感度未解锁任何商品</div>'; }
-                var realHtml = (function () {
+                }
+                var realHtml = '';
+                if (sub === 'real') { realHtml = (function () {
                     var rate = parsePrice(getRaw(d, '背包与商城.商城.现实通道.兑换比例', NaN));
                     var rateOk = isFinite(rate) && rate > 0;
                     var base = kv('兑换比例', getValue(d, '背包与商城.商城.现实通道.兑换比例')) +
@@ -2288,7 +2306,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                         '<div class="neb-actions"><button class="neb-btn mxs-rt-buy" id="mxs-rt-buy"' +
                         (limOk && lim < 1 ? ' disabled title="可兑换上限不足"' : '') + '>兑换现实时间</button></div>';
                 })();
-                var sub = shopState.sub || 'normal';
+                }
                 var on = function (id) { return sub === id ? ' active' : ''; };
                 return '<div class="neb-card mxs-shop-card"><div class="neb-card-title">矩阵商城</div>' +
                     '<div class="neb-subtabs" id="neb-shop-subtabs">' +
@@ -2301,27 +2319,30 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     '<div class="neb-subtab' + on('obsession') + '" data-sub="obsession">执念</div>' +
                     '</div>' +
                     '<div class="neb-subpage' + on('normal') + '" id="sub-normal">' +
-                    mxShopToolbar(shopState, 'mxs-shop-search', f.counts, arr.length, f.list.length) +
-                    mxSessionSummary() +
-                    '<div class="neb-split">' +
-                    '<div class="mxs-grid" id="neb-shop-list">' + shopList + '</div>' +
-                    '<div class="neb-card neb-detail" id="neb-shop-detail"></div></div>' +
-                    recHtml + '</div>' +
-                    '<div class="neb-subpage' + on('flash') + '" id="sub-flash">' + renderFlashPage(d) + '</div>' +
-                    '<div class="neb-subpage' + on('blind') + '" id="sub-blind">' + renderBlindPage(d) + '</div>' +
-                    '<div class="neb-subpage' + on('vip') + '" id="sub-vip">' + renderVipPage(d) + '</div>' +
-                    '<div class="neb-subpage' + on('faction') + '" id="sub-faction"><div style="margin-bottom:8px">当前好感度等级：<b>' +
-                    esc(facLevel) + '</b></div><div class="neb-list">' + facHtml + '</div></div>' +
-                    '<div class="neb-subpage' + on('real') + '" id="sub-real">' + realHtml + '</div>' +
-                    '<div class="neb-subpage' + on('obsession') + '" id="sub-obsession">' + renderObsession(d) + '</div>' +
+                    (sub === 'normal' ?
+                        mxShopToolbar(shopState, 'mxs-shop-search', f.counts, arr.length, f.list.length) +
+                        mxSessionSummary() +
+                        '<div class="neb-split">' +
+                        '<div class="mxs-grid" id="neb-shop-list">' + shopList + '</div>' +
+                        '<div class="neb-card neb-detail" id="neb-shop-detail"></div></div>' +
+                        recHtml
+                        : '<div class="mxs-empty">切换页签后载入…</div>') + '</div>' +
+                    '<div class="neb-subpage' + on('flash') + '" id="sub-flash">' + (sub === 'flash' ? renderFlashPage(d) : '<div class="mxs-empty">切换页签后载入…</div>') + '</div>' +
+                    '<div class="neb-subpage' + on('blind') + '" id="sub-blind">' + (sub === 'blind' ? renderBlindPage(d) : '<div class="mxs-empty">切换页签后载入…</div>') + '</div>' +
+                    '<div class="neb-subpage' + on('vip') + '" id="sub-vip">' + (sub === 'vip' ? renderVipPage(d) : '<div class="mxs-empty">切换页签后载入…</div>') + '</div>' +
+                    '<div class="neb-subpage' + on('faction') + '" id="sub-faction">' + (sub === 'faction' ? '<div style="margin-bottom:8px">当前好感度等级：<b>' +
+                    esc(facLevel) + '</b></div><div class="neb-list">' + facHtml + '</div>' : '<div class="mxs-empty">切换页签后载入…</div>') + '</div>' +
+                    '<div class="neb-subpage' + on('real') + '" id="sub-real">' + (sub === 'real' ? realHtml : '<div class="mxs-empty">切换页签后载入…</div>') + '</div>' +
+                    '<div class="neb-subpage' + on('obsession') + '" id="sub-obsession">' + (sub === 'obsession' ? renderObsession(d) : '<div class="mxs-empty">切换页签后载入…</div>') + '</div>' +
                     '</div>';
             }
 
             /* ---------- 复写：背包（新增 回收分解台 子页） ---------- */
             function renderBag(d) {
                 var items = getRaw(d, '背包与商城.背包.物品列表', {});
-                var arr = [];
-                var estQty = 0;
+                var bsub0 = mall2State.bagSub || 'items';
+                var arr = [], estQty = 0, f = null, listHtml = '', capCard = '', bagBody = '';
+                if (bsub0 === 'items') {
                 if (items && typeof items === 'object') {
                     Object.keys(items).forEach(function (name) {
                         var info = items[name];
@@ -2336,9 +2357,9 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     });
                 }
                 var ses = shopState.session;
-                var f = mxFilterItems(arr, bagState);
+                f = mxFilterItems(arr, bagState);
                 bagState.list = f.list;
-                var listHtml = '';
+                listHtml = '';
                 f.list.forEach(function (it, idx) {
                     var typeTxt = mxTypeText(it);
                     var desc = mxDescText(it);
@@ -2362,7 +2383,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 var aiUsed = (pc && isFinite(pc.used)) ? pc.used : null;
                 var n = Math.max(1, Math.floor((cap - MX_CAP_INIT) / MX_CAP_STEP) + 1);
                 var nextPrice = mxCapPrice(n);
-                var capCard = '<div class="neb-card mxs-cap-card">' +
+                capCard = '<div class="neb-card mxs-cap-card">' +
                     '<div class="mxs-cap-main"><div class="mxs-cap-title"><i class="fa-solid fa-bag-shopping"></i>背包容量</div>' +
                     '<div class="mxs-cap-val">' + esc(estQty + ' / ' + cap) +
                     '<span class="mxs-cap-sub">（已用按物品列表实时估算' +
@@ -2374,20 +2395,21 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                         ('已达上限 ' + MX_CAP_MAX + ' 格') :
                         ('第 ' + n + ' 次扩展：' + cap + ' -> ' + Math.min(MX_CAP_MAX, cap + MX_CAP_STEP) + ' 格，价格随次数递增（250×n×(n+1)）')) + '</div>' +
                     '</div></div>';
-                var bagBody = capCard +
+                bagBody = capCard +
                     mxShopToolbar(bagState, 'mxs-bag-search', f.counts, arr.length, f.list.length) +
                     mxSessionSummary() +
                     '<div class="neb-split" style="margin-top:12px">' +
                     '<div><div class="mxs-grid" id="neb-bag-list">' + listHtml + '</div></div>' +
                     '<div class="neb-card neb-detail" id="neb-bag-detail"></div>' +
                     '</div>';
+                }
                 var bsub = mall2State.bagSub || 'items';
                 var bon = function (id) { return bsub === id ? ' active' : ''; };
                 return '<div class="neb-subtabs mx2-bag-tabs" id="mx2-bag-subtabs">' +
                     '<div class="mx2-subtab' + bon('items') + '" data-bagsub="items">物品</div>' +
                     '<div class="mx2-subtab' + bon('recycle') + '" data-bagsub="recycle"><i class="fa-solid fa-recycle"></i> 回收分解台</div></div>' +
-                    '<div class="neb-subpage' + bon('items') + '" id="mx2-bag-items">' + bagBody + '</div>' +
-                    '<div class="neb-subpage' + bon('recycle') + '" id="mx2-bag-recycle">' + renderRecyclePage(d) + '</div>';
+                    '<div class="neb-subpage' + bon('items') + '" id="mx2-bag-items">' + (bagBody || '<div class="mxs-empty">切换页签后载入…</div>') + '</div>' +
+                    '<div class="neb-subpage' + bon('recycle') + '" id="mx2-bag-recycle">' + (bsub === 'recycle' ? renderRecyclePage(d) : '<div class="mxs-empty">切换页签后载入…</div>') + '</div>';
             }
 
             /* ---------- 复写：交易所顶层（7 页签） ---------- */
@@ -2428,27 +2450,48 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     tab('ex-auction', '拍卖行', 'fa-solid fa-gavel') +
                     tab('ex-roulette', '幸运轮盘', 'fa-solid fa-dharmachakra') +
                     '</div>' +
-                    '<div class="neb-subpage' + on('ex-shop') + '" id="sub-ex-shop"><div id="page-shop">' + renderShop(d) + '</div></div>' +
-                    '<div class="neb-subpage' + on('ex-bag') + '" id="sub-ex-bag"><div id="page-bag">' + renderBag(d) + '</div></div>' +
-                    '<div class="neb-subpage' + on('ex-enemy') + '" id="sub-ex-enemy"><div id="page-enemy">' + renderEnemyTech(d) + '</div></div>' +
-                    '<div class="neb-subpage' + on('ex-black') + '" id="sub-ex-black"><div id="page-black">' + renderBlackMarket(d) + '</div></div>' +
-                    '<div class="neb-subpage' + on('ex-arena') + '" id="sub-ex-arena"><div id="page-arena">' + renderArena(d) + '</div></div>' +
-                    '<div class="neb-subpage' + on('ex-auction') + '" id="sub-ex-auction"><div id="page-auction">' + renderAuction(d) + '</div></div>' +
-                    '<div class="neb-subpage' + on('ex-roulette') + '" id="sub-ex-roulette"><div id="page-roulette">' + renderRoulette(d) + '</div></div>' +
+                    (function () {
+                        var subs = { 'ex-shop': renderShop, 'ex-bag': renderBag, 'ex-enemy': renderEnemyTech, 'ex-black': renderBlackMarket, 'ex-arena': renderArena, 'ex-auction': renderAuction, 'ex-roulette': renderRoulette };
+                        var out = '';
+                        Object.keys(subs).forEach(function (id) {
+                            if (id === exSub) {
+                                out += '<div class="neb-subpage active" id="sub-' + id + '"><div id="page-' + id.slice(3) + '">' + subs[id](d) + '</div></div>';
+                            } else {
+                                out += '<div class="neb-subpage" id="sub-' + id + '"><div class="mxs-empty">切换页签后载入…</div></div>';
+                            }
+                        });
+                        return out;
+                    })() +
                     '</div></div></div>';
             }
 
-            function renderHud(d) {
+            var __mxNebDirty = {};
+            function mxRenderNebPage(page, d) {
                 var pages = { home: renderHome, profile: renderProfile, quest: renderQuest,
                     world: renderWorld, log: renderLog, faction: renderFaction };
-                Object.keys(pages).forEach(function(k) {
-                    try { var el = document.getElementById('page-' + k); if (el) el.innerHTML = pages[k](d); } catch (
-                        e) { console.error(k, e); }
+                var fn = pages[page];
+                if (!fn) return;
+                var el = document.getElementById('page-' + page);
+                if (!el) return;
+                if (d === undefined) d = getStatData();
+                if (!d) return;
+                try { el.innerHTML = fn(d); } catch (e) { console.error(page, e); }
+                delete __mxNebDirty[page];
+            }
+            function renderHud(d) {
+                var actTab = document.querySelector('#neb-tabs .neb-tab.active');
+                var actPage = actTab ? (actTab.getAttribute('data-page') || 'home') : 'home';
+                Object.keys({ home: 1, profile: 1, quest: 1, world: 1, log: 1, faction: 1 }).forEach(function(k) {
+                    if (k === actPage) mxRenderNebPage(k, d);
+                    else __mxNebDirty[k] = true;
                 });
-                try {
-                    var exBody = document.getElementById('mx-ex-body');
-                    if (exBody) exBody.innerHTML = renderExchange(d);
-                } catch (e) { console.error('exchange', e); }
+                var exPage = document.getElementById('mx-page-exchange');
+                if (exPage && exPage.classList.contains('active')) {
+                    try {
+                        var exBody = document.getElementById('mx-ex-body');
+                        if (exBody) exBody.innerHTML = renderExchange(d);
+                    } catch (e) { console.error('exchange', e); }
+                } else { __mxNebDirty.__exchange = true; }
                 bindDynamic();
             }
 
@@ -3835,7 +3878,8 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
             function bindDynamic() {
                 var qd = document.getElementById('neb-quest-detail');
                 var pq = document.getElementById('page-quest');
-                if (pq) {
+                if (pq && !pq.dataset.mxqBound) {
+                    pq.dataset.mxqBound = '1';
                     pq.addEventListener('click', function(e) {
                         var it = e.target.closest('.neb-quest-item');
                         if (it) {
@@ -4556,6 +4600,25 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
 
             /* ===== 初始化 ===== */
             bindStatic();
+
+            /* ===== 懒渲染：切换标签时补渲染未激活页面（性能优化） ===== */
+            (function() {
+                var nebTabs = document.getElementById('neb-tabs');
+                if (nebTabs) nebTabs.addEventListener('click', function() {
+                    var t = nebTabs.querySelector('.neb-tab.active');
+                    if (!t) return;
+                    var p = t.getAttribute('data-page');
+                    if (__mxNebDirty[p]) mxRenderNebPage(p);
+                });
+                var mxTabs = document.getElementById('mx-tabs');
+                if (mxTabs) mxTabs.addEventListener('click', function() {
+                    var t = mxTabs.querySelector('.mx-tab.active');
+                    if (t && t.getAttribute('data-mxtab') === 'exchange' && __mxNebDirty.__exchange) {
+                        __mxNebDirty.__exchange = false;
+                        mxRefreshExchange();
+                    }
+                });
+            })();
 
             function init() {
                 bindLongPress();

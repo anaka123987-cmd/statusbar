@@ -393,14 +393,14 @@
         var iv = setInterval(function () {
             if (numEl) numEl.textContent = String(1 + Math.floor(Math.random() * 100));
             times++;
-            if (times >= 16) {
+            if (times >= 8) {
                 clearInterval(iv);
                 chkState.rec = doRoll(chkState.skill, chkState.diffId);
                 chkState.rolling = false;
                 if (btn) btn.disabled = false;
                 showResult();
             }
-        }, 40);
+        }, 80);
     }
     function showResult() {
         if (!chkState || !chkState.rec) return;
