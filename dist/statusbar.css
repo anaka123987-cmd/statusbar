@@ -4329,7 +4329,8 @@ body.mx-started .mx-overlay{display:none!important}
 }
 
 /* ===== v1.3.4 强制手机布局（.mx-m 类由 JS 依据 min(布局视口, visualViewport) 挂载，绕过一切媒体/容器查询） ===== */
-#mx-title-overlay.mx-m,#mx-create-overlay.mx-m{height:auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,0px)}
+/* v1.3.6 本体全宽：.mx-m 原先只强制内容单列，覆盖层仍残留桌面卡片宽度/圆角/内距，窄容器里右侧被裁 */
+#mx-title-overlay.mx-m,#mx-create-overlay.mx-m{box-sizing:border-box;width:100%;max-width:100%;margin:0;border-radius:0;border-left:none;border-right:none;height:auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,0px)}
 #mx-title-overlay.mx-m .mx-o-view{position:relative;inset:auto;min-height:0;padding:26px 18px}
 #mx-title-overlay.mx-m .mx-title-layout{height:auto;min-height:0;grid-template-columns:1fr;gap:20px;align-items:start}
 #mx-title-overlay.mx-m .mx-kicker{font-size:11px;padding:7px 12px;letter-spacing:.12em}
@@ -4374,5 +4375,5 @@ body.mx-started .mx-overlay{display:none!important}
 
 /* 版本角标（用于确认客户端实际加载的版本；data-diag 由视口纠偏脚本写入：
    w=量得视口宽 s=屏幕物理短边 t/m=触屏/鼠标 vp=视口触发 dev=物理触发 off=未竖排） */
-#mx-title-overlay .mx-kicker span::after{content:" · v1.3.5" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
-#mx-create-overlay .mx-logo span::after{content:" · v1.3.5" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
+#mx-title-overlay .mx-kicker span::after{content:" · v1.3.6" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
+#mx-create-overlay .mx-logo span::after{content:" · v1.3.6" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
