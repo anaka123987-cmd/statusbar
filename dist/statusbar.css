@@ -4373,7 +4373,31 @@ body.mx-started .mx-overlay{display:none!important}
 #mx-create-overlay.mx-m .mx-preview.mx-collapsed .mx-preview-toggle i{transform:rotate(-90deg)}
 #mx-create-overlay.mx-m .mx-output{height:120px;font-size:11px}
 
+/* ===== v1.3.7 手机端溢出修复：Grid/Flex 子项默认 min-width:auto，内容（步骤条横滚、
+   mx-attr 三列固定网格、宽输入框）会把 mx-shell/mx-main 撑超宽 → 整页右溢出屏幕。
+   沿容器链补 min-width:0 + 可收缩网格，保证内容收敛到视口内 ===== */
+#mx-create-overlay.mx-m,#mx-title-overlay.mx-m{min-width:0}
+#mx-create-overlay.mx-m .mx-shell{min-width:0;width:100%;max-width:100%}
+#mx-create-overlay.mx-m .mx-shell>*{min-width:0}
+#mx-create-overlay.mx-m .mx-side{min-width:0;overflow:hidden}
+#mx-create-overlay.mx-m .mx-side nav{max-width:100%}
+#mx-create-overlay.mx-m .mx-main{min-width:0;width:100%;max-width:100%;overflow:hidden}
+#mx-create-overlay.mx-m .mx-view{min-width:0;width:100%;max-width:100%}
+#mx-create-overlay.mx-m .mx-preview{min-width:0;overflow:hidden}
+#mx-create-overlay.mx-m .mx-grid{min-width:0}
+#mx-create-overlay.mx-m .mx-grid>*{min-width:0}
+#mx-create-overlay.mx-m .mx-mini-row{min-width:0;grid-template-columns:1fr 1fr}
+#mx-create-overlay.mx-m .mx-mini-row>*{min-width:0}
+/* 属性行：三列 70px/1fr/94px，1fr 默认不收缩 → 改 minmax(0,1fr) 并允许子项收缩 */
+#mx-create-overlay.mx-m .mx-attr{grid-template-columns:64px minmax(0,1fr) 96px;min-width:0}
+#mx-create-overlay.mx-m .mx-attr>*{min-width:0}
+#mx-create-overlay.mx-m .mx-attr-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 标题/长文本强制换行，避免单行撑宽 */
+#mx-create-overlay.mx-m h1,#mx-create-overlay.mx-m .mx-sub,#mx-create-overlay.mx-m .mx-field label{overflow-wrap:anywhere}
+/* 输入控件占满但不超出 */
+#mx-create-overlay.mx-m input,#mx-create-overlay.mx-m select,#mx-create-overlay.mx-m textarea{max-width:100%}
+
 /* 版本角标（用于确认客户端实际加载的版本；data-diag 由视口纠偏脚本写入：
    w=量得视口宽 s=屏幕物理短边 t/m=触屏/鼠标 vp=视口触发 dev=物理触发 off=未竖排） */
-#mx-title-overlay .mx-kicker span::after{content:" · v1.3.6" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
-#mx-create-overlay .mx-logo span::after{content:" · v1.3.6" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
+#mx-title-overlay .mx-kicker span::after{content:" · v1.3.7" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
+#mx-create-overlay .mx-logo span::after{content:" · v1.3.7" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
