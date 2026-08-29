@@ -51,11 +51,34 @@
             }
         } catch (e) {}
         try {
+            var id2 = safeId();
+            if (typeof Mvu !== 'undefined' && Mvu.getMvuData && id2 !== null) {
+                var d0 = Mvu.getMvuData({ type: 'message', message_id: id2 });
+                if (d0 && d0.stat_data) return d0.stat_data;
+            }
+        } catch (e4) {}
+        /* 当前层没有 stat_data（用户楼/伪楼层/MVU 未初始化楼层）时，
+           从最新楼层倒序找最后一条带 stat_data 的消息，与战斗引擎 fetchStatData 同策略 */
+        try {
+            if (typeof getChatMessages === 'function') {
+                var lid = (typeof getLastMessageId === 'function') ? Number(getLastMessageId()) : NaN;
+                if (isNaN(lid) || lid < 0) lid = safeId();
+                var msgs = (lid !== null && lid !== undefined && !isNaN(lid)) ? getChatMessages('0-' + lid) : null;
+                if (msgs && msgs.length) {
+                    for (var i = msgs.length - 1; i >= 0; i--) {
+                        var m = msgs[i];
+                        var sd = (m && m.data && m.data.stat_data) || (m && m.stat_data);
+                        if (sd) return sd;
+                    }
+                }
+            }
+        } catch (e2) {}
+        try {
             if (typeof Mvu !== 'undefined' && Mvu.getMvuData) {
                 var d = Mvu.getMvuData({ type: 'message', message_id: 'latest' });
                 if (d && d.stat_data) return d.stat_data;
             }
-        } catch (e2) {}
+        } catch (e3) {}
         return null;
     }
     function chatKey() {

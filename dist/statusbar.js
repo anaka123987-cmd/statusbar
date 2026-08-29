@@ -244,6 +244,30 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                         return statData;
                     }
                 }
+                /* 最新助手楼没有 stat_data（新楼未初始化/伪楼层/纯用户楼）时，
+                   从最新楼层倒序找最后一条带 stat_data 的消息，与战斗引擎 fetchStatData 同策略；
+                   仍找不到才退回缓存，避免档案页读到陈旧属性 */
+                try {
+                    if (typeof getChatMessages === 'function') {
+                        var lastId = typeof getLastMessageId === 'function' ? Number(getLastMessageId()) : NaN;
+                        if (isNaN(lastId) || lastId < 0) {
+                            try { var cid = Number(getCurrentMessageIdSafe ? getCurrentMessageIdSafe() : NaN); if (!isNaN(cid)) lastId = cid; } catch (eCid) {}
+                        }
+                        var msgs = (!isNaN(lastId) && lastId >= 0) ? getChatMessages('0-' + lastId) : null;
+                        if (msgs && msgs.length) {
+                            for (var i = msgs.length - 1; i >= 0; i--) {
+                                var mi = msgs[i];
+                                var sd2 = (mi && mi.data && mi.data.stat_data) || (mi && mi.stat_data) || null;
+                                if (sd2) {
+                                    window.__mxPseudoState = window.__mxPseudoState || {};
+                                    window.__mxPseudoState.statData = sd2;
+                                    window.__mxPseudoState.messageId = mi.message_id;
+                                    return sd2;
+                                }
+                            }
+                        }
+                    }
+                } catch (eScan) {}
                 return window.__mxPseudoState ? window.__mxPseudoState.statData || null : null;
             }
 
@@ -1246,10 +1270,11 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 var attrs = ['力量', '敏捷', '体质', '智力', '精神', '魅力'];
                 var attrHtml = attrs.map(function(a) { return attr(a, getValue(d, '个人档案.战斗属性.' + a, 0)); }).join(
                 '');
-                var hpCur = num(getValue(d, '个人档案.衍生属性.生命值.当前', 0));
-                var hpMax = num(getValue(d, '个人档案.衍生属性.生命值.最大', 0), 0);
-                var epCur = num(getValue(d, '个人档案.衍生属性.能量值.当前', 0));
-                var epMax = num(getValue(d, '个人档案.衍生属性.能量值.最大', 1), 1);
+                /* 衍生属性：MVU 有值以 MVU 为准；缺失时按战斗引擎同款公式自算（HP 兼作耐力，上限回落能量上限=floor(精神)） */
+                var hpCurRaw = getRaw(d, '个人档案.衍生属性.生命值.当前', null);
+                var hpMaxRaw = getRaw(d, '个人档案.衍生属性.生命值.最大', null);
+                var epCurRaw = getRaw(d, '个人档案.衍生属性.能量值.当前', null);
+                var epMaxRaw = getRaw(d, '个人档案.衍生属性.能量值.最大', null);
                 var epType = getValue(d, '个人档案.衍生属性.能量值.类型', '能量');
                 var cCon = num(getValue(d, '个人档案.战斗属性.体质', 10));
                 var cSpi = num(getValue(d, '个人档案.战斗属性.精神', 10));
@@ -1262,8 +1287,10 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     calcMystDef = Math.floor(cSpi / 2) + ebMyst,
                     calcCrit = Math.min(100, 5 + ebCrit),
                     calcMove = Math.floor(cAgi / 5) + ebMove;
-                var calcEpMax = epMax;
-                if (calcEpMax < 1) calcEpMax = num(cSpi, 1);
+                var calcEpMax = (epMaxRaw !== null && num(epMaxRaw, 0) > 0) ? num(epMaxRaw, 0) : Math.max(1, Math.floor(num(cSpi, 1)));
+                var calcHpMax = (hpMaxRaw !== null && num(hpMaxRaw, 0) > 0) ? num(hpMaxRaw, 0) : calcEpMax;
+                var calcHpCur = (hpCurRaw !== null) ? num(hpCurRaw, 0) : calcHpMax;
+                var calcEpCur = (epCurRaw !== null) ? num(epCurRaw, 0) : calcEpMax;
                 var skills = getRaw(d, '个人档案.强化与技能.技能列表', {});
                 var skillHtml = '';
                 if (skills && typeof skills === 'object') {
@@ -1285,10 +1312,10 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     '<div class="neb-card"><div class="neb-card-title">战斗属性</div><div class="neb-attr-grid">' +
                     attrHtml + '</div></div>' +
                     '<div class="neb-card"><div class="neb-card-title">衍生属性 <span style="font-size:11px;font-weight:400;color:var(--neb-text-soft)">（公式自算）</span></div>' +
-                    '<div class="neb-kv"><span class="k">生命值(耐力)</span><span class="v">' + hpCur + '/' + hpMax +
-                    '</span>' + bar(hpMax > 0 ? hpCur / hpMax * 100 : 0) + '</div>' +
+                    '<div class="neb-kv"><span class="k">生命值(耐力)</span><span class="v">' + calcHpCur + '/' + calcHpMax +
+                    '</span>' + bar(calcHpMax > 0 ? calcHpCur / calcHpMax * 100 : 0) + '</div>' +
                     '<div class="neb-kv" style="margin-top:8px"><span class="k">能量(' + esc(epType) +
-                    ')</span><span class="v">' + epCur + '/' + calcEpMax + '</span>' + bar(calcEpMax > 0 ? epCur /
+                    ')</span><span class="v">' + calcEpCur + '/' + calcEpMax + '</span>' + bar(calcEpMax > 0 ? calcEpCur /
                         calcEpMax * 100 : 0) + '</div>' +
                     '<div class="neb-attr-grid" style="margin-top:12px">' +
                     attr('物理防御', calcPhysDef + '') + attr('神秘防御', calcMystDef + '') + attr('暴击率', calcCrit +
@@ -1506,6 +1533,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
 
             /* 本楼购买会话：首次操作前保存整份快照，支持一键撤回本楼全部前端购买 */
             function mxSessionBegin(sd, msgId) {
+                mxAttachBase(sd); /* 记录读取基线，回写时按差异合并，避免覆盖同层其它更新 */
                 if (!shopState.session || shopState.session.msgId !== msgId) {
                     var snap = null;
                     snap = mxClone(sd, null);
@@ -2602,21 +2630,77 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 }
                 catch (e) { console.error('[mx-mall2] chat var 还原失败', e); }
             }
-            async function mxSaveStatData(sd, msgId) {
-                if (msgId === null || msgId === undefined) return;
+            /* ---------- stat_data 回写：基线差异合并 + 全局写队列 ----------
+               读取时（mxFreshStatData / mxSessionBegin）用 mxAttachBase 记下基线快照，
+               回写时只把「相对基线有变化的叶子」合并进楼层最新 stat_data。
+               同层其它来源的更新（AI 的 <UpdateVariable>、命运点、上一笔交易等）
+               未被本笔操作改动的值不再被整棵子树覆盖 —— 修复同层多处变量修改互相覆盖的问题 */
+            function mxAttachBase(sd) {
                 try {
-                    if (typeof updateVariablesWith === 'function') {
-                        await updateVariablesWith(function (v) {
-                            var cur = (v && v.stat_data) || null;
-                            if (cur && cur !== sd) {
-                                Object.keys(sd).forEach(function (k) { cur[k] = sd[k]; });
-                            } else if (v) { v.stat_data = sd; }
-                            return v;
-                        }, { type: 'message', message_id: msgId });
-                    } else if (typeof insertOrAssignVariables === 'function') {
-                        await insertOrAssignVariables({ stat_data: sd }, { type: 'message', message_id: msgId });
+                    if (sd && typeof sd === 'object' && !sd.__mxBase) {
+                        /* 不可枚举：不进 JSON.stringify / Object.keys，不影响变更签名与序列化 */
+                        Object.defineProperty(sd, '__mxBase', { value: mxClone(sd, null), enumerable: false, configurable: true, writable: true });
                     }
-                } catch (e) { console.error('[mx-mall2] stat_data 写入失败', e); }
+                } catch (e) {}
+                return sd;
+            }
+            function mxStripBase(sd) {
+                var out = {};
+                try { Object.keys(sd || {}).forEach(function(k) { out[k] = sd[k]; }); } catch (e) { return sd; }
+                return out;
+            }
+            function mxDeepEqual(a, b) {
+                if (a === b) return true;
+                if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+                if (Array.isArray(a) !== Array.isArray(b)) return false;
+                var ka = Object.keys(a), kb = Object.keys(b);
+                if (ka.length !== kb.length) return false;
+                for (var i = 0; i < ka.length; i++) {
+                    if (!Object.prototype.hasOwnProperty.call(b, ka[i]) || !mxDeepEqual(a[ka[i]], b[ka[i]])) return false;
+                }
+                return true;
+            }
+            function mxMergeChanges(target, base, now) {
+                Object.keys(now).forEach(function(k) {
+                    var nv = now[k], bv = base ? base[k] : undefined;
+                    if (mxDeepEqual(nv, bv)) return; /* 未改动：跳过，保留 target 上的最新值 */
+                    if (nv && bv && typeof nv === 'object' && typeof bv === 'object' && !Array.isArray(nv) && !Array.isArray(bv)) {
+                        if (!(target[k] && typeof target[k] === 'object' && !Array.isArray(target[k]))) target[k] = {};
+                        mxMergeChanges(target[k], bv, nv);
+                    } else { target[k] = nv; }
+                });
+                if (base) {
+                    Object.keys(base).forEach(function(k) {
+                        if (!(k in now) && mxDeepEqual(base[k], target[k])) delete target[k];
+                    });
+                }
+            }
+            var __mxStatSaveQ = Promise.resolve();
+            function mxSaveStatData(sd, msgId) {
+                if (msgId === null || msgId === undefined) return Promise.resolve();
+                var run = __mxStatSaveQ.then(function() {
+                    return (async function() {
+                        try {
+                            if (typeof updateVariablesWith === 'function') {
+                                await updateVariablesWith(function(v) {
+                                    if (!v) return v;
+                                    var cur = (v && v.stat_data) || null;
+                                    var base = (sd && typeof sd === 'object') ? sd.__mxBase : null;
+                                    if (!cur) { cur = v.stat_data = {}; }
+                                    if (cur !== sd) {
+                                        if (base && typeof base === 'object') { mxMergeChanges(cur, base, sd); }
+                                        else { Object.keys(sd).forEach(function(k) { cur[k] = sd[k]; }); }
+                                    } else { v.stat_data = sd; }
+                                    return v;
+                                }, { type: 'message', message_id: msgId });
+                            } else if (typeof insertOrAssignVariables === 'function') {
+                                await insertOrAssignVariables({ stat_data: mxStripBase(sd) }, { type: 'message', message_id: msgId });
+                            }
+                        } catch (e) { console.error('[mx-mall2] stat_data 写入失败', e); }
+                    })();
+                });
+                __mxStatSaveQ = run.then(function() {}, function() {});
+                return run;
             }
             function mxHash(str) { var h = 5381, i; str = String(str); for (i = 0; i < str.length; i++) { h = ((h << 5) + h + str.charCodeAt(i)) >>> 0; } return h; }
             function mxRng(seed) { var a = (Number(seed) >>> 0) || 1; return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -2630,12 +2714,14 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     if (mid !== null && typeof getVariables === 'function') {
                         var v = getVariables({ type: 'message', message_id: mid });
                         if (v && v.stat_data) {
+                            mxAttachBase(v.stat_data);
                             if (typeof window !== 'undefined') { window.__mxPseudoState = window.__mxPseudoState || {}; window.__mxPseudoState.statData = v.stat_data; window.__mxPseudoState.messageId = mid; }
                             return v.stat_data;
                         }
                     }
                 } catch (e) {}
-                return (typeof getStatData === 'function') ? getStatData() : null;
+                var d0 = (typeof getStatData === 'function') ? getStatData() : null;
+                return d0 ? mxAttachBase(d0) : null;
             }
 
             /* ---------- VIP 声望 ---------- */
@@ -4227,6 +4313,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     if (hasPatches) {
                         var vars = getVariables({ type: 'message', message_id: ses.msgId });
                         var sd = vars && vars.stat_data;
+                        if (sd) mxAttachBase(sd);
                         if (!sd) { await mxSaveStatData(ses.snapshot, ses.msgId); }
                         else {
                             ses.patches.forEach(function (p) {

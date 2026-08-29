@@ -113,18 +113,44 @@
 
     /* ---------- MVU 世界信息 ---------- */
     function readWorld() {
+        var empty = { inst: null, wname: null };
+        var sd = null;
         try {
-            if (typeof Mvu === 'undefined' || typeof Mvu.getMvuData !== 'function') return { inst: null, wname: null };
-            var d = Mvu.getMvuData({ type: 'message', message_id: (typeof getCurrentMessageId === 'function') ? getCurrentMessageId() : 'latest' });
-            var sd = (typeof _ !== 'undefined' && typeof _.get === 'function') ? _.get(d, 'stat_data') : (d && d.stat_data);
-            if (!sd || typeof _.get !== 'function') return { inst: null, wname: null };
+            if (typeof Mvu !== 'undefined' && typeof Mvu.getMvuData === 'function') {
+                var mid = (typeof getCurrentMessageId === 'function') ? getCurrentMessageId() : 'latest';
+                var d = Mvu.getMvuData({ type: 'message', message_id: mid });
+                sd = (typeof _ !== 'undefined' && typeof _.get === 'function') ? _.get(d, 'stat_data') : (d && d.stat_data);
+            }
+        } catch (e) { sd = null; }
+        /* 当前层没有 stat_data（用户楼/伪楼层/MVU 未初始化楼层）时，
+           从最新楼层倒序找最后一条带 stat_data 的消息，与战斗引擎 fetchStatData 同策略 */
+        if (!sd) {
+            try {
+                if (typeof getChatMessages === 'function') {
+                    var lid = (typeof getLastMessageId === 'function') ? Number(getLastMessageId()) : NaN;
+                    if (isNaN(lid) || lid < 0) {
+                        try { var cid = (typeof getCurrentMessageId === 'function') ? Number(getCurrentMessageId()) : NaN; if (!isNaN(cid)) lid = cid; } catch (eC) {}
+                    }
+                    var msgs = (!isNaN(lid) && lid >= 0) ? getChatMessages('0-' + lid) : null;
+                    if (msgs && msgs.length) {
+                        for (var i = msgs.length - 1; i >= 0; i--) {
+                            var m = msgs[i];
+                            var cand = (m && m.data && m.data.stat_data) || (m && m.stat_data);
+                            if (cand) { sd = cand; break; }
+                        }
+                    }
+                }
+            } catch (e2) { sd = sd || null; }
+        }
+        if (!sd || typeof _.get !== 'function') return empty;
+        try {
             var inst = _.get(sd, '任务与日志.任务世界.副本实例id');
             var wname = _.get(sd, '任务与日志.任务世界.世界名称');
             return {
                 inst: (inst === undefined || inst === null || String(inst).trim() === '') ? null : String(inst).trim(),
                 wname: (wname === undefined || wname === null || String(wname).trim() === '') ? null : String(wname).trim()
             };
-        } catch (e) { return { inst: null, wname: null }; }
+        } catch (e3) { return empty; }
     }
 
     /* ---------- 分组归类 ---------- */
