@@ -2727,6 +2727,57 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 return d0 ? mxAttachBase(d0) : null;
             }
 
+            /* ---------- 衍生属性持续自动计算 + 回写 MVU ----------
+               公式（作者定义）：生命值上限=100+(体质-10)×10；魔力上限=精神×2；
+               叠加 装备加成（穿/卸装备、AI 剧情换装时前端重算）与 加成.生命值上限/魔力上限（AI 剧情性增量）。
+               结果回写当前楼层的 生命值.最大 / 能量值.最大；当前值超限钳制、缺失补满；
+               AI 禁止直接改 最大，剧情性上限变化写 加成 字段（世界书规则约定） */
+            function mxCalcDerivedMax(sd) {
+                var cCon = num(getValue(sd, '个人档案.战斗属性.体质', 10), 10);
+                var cSpi = num(getValue(sd, '个人档案.战斗属性.精神', 10), 10);
+                var ebHp = num(getValue(sd, '个人档案.衍生属性.装备加成.生命值上限', 0), 0);
+                var ebEp = num(getValue(sd, '个人档案.衍生属性.装备加成.魔力上限', 0), 0);
+                var xHp = num(getValue(sd, '个人档案.衍生属性.加成.生命值上限', 0), 0);
+                var xEp = num(getValue(sd, '个人档案.衍生属性.加成.魔力上限', 0), 0);
+                return {
+                    hpMax: Math.max(1, Math.round(100 + (cCon - 10) * 10 + ebHp + xHp)),
+                    epMax: Math.max(1, Math.floor(cSpi * 2 + ebEp + xEp))
+                };
+            }
+            function mxSyncDerivedToVars() {
+                try {
+                    if (typeof combatActive === 'function' && combatActive()) return; /* 战斗中 HP/魔力由引擎管理 */
+                    var msgId = mx2SafeId();
+                    var lastId = (typeof getLastMessageId === 'function') ? Number(getLastMessageId()) : NaN;
+                    if (msgId === null || msgId === undefined || isNaN(lastId) || Number(msgId) !== lastId) return; /* 只同步最新楼层 */
+                    if (typeof getVariables !== 'function') return;
+                    var vars = getVariables({ type: 'message', message_id: msgId });
+                    var sd = vars && vars.stat_data;
+                    if (!sd || !sd['个人档案']) return;
+                    mxAttachBase(sd); /* 基线=楼层当前状态，须在装备重算之前挂，重算结果才能进入差异写入 */
+                    var ebBefore = JSON.stringify(getRaw(sd, '个人档案.衍生属性.装备加成', null) || {});
+                    mxRecalcEquipBonus(sd); /* 装备加成重算（覆盖 AI 侧剧情换装直接改装备列表的情况） */
+                    var ebAfter = JSON.stringify(getRaw(sd, '个人档案.衍生属性.装备加成', null) || {});
+                    var calc = mxCalcDerivedMax(sd);
+                    var hpMaxOld = num(getValue(sd, '个人档案.衍生属性.生命值.最大', 0), 0);
+                    var epMaxOld = num(getValue(sd, '个人档案.衍生属性.能量值.最大', 0), 0);
+                    if (hpMaxOld === calc.hpMax && epMaxOld === calc.epMax && ebBefore === ebAfter) return; /* 无变化零写入，避免循环 */
+                    var da = sd['个人档案']['衍生属性'] = sd['个人档案']['衍生属性'] || {};
+                    if (!da['生命值'] || typeof da['生命值'] !== 'object') da['生命值'] = {};
+                    var hpO = da['生命值'];
+                    var hpCur = num(hpO['当前'], 0);
+                    hpO['最大'] = calc.hpMax;
+                    if (hpCur > calc.hpMax || hpO['当前'] === undefined || hpO['当前'] === null) hpO['当前'] = calc.hpMax;
+                    if (!da['能量值'] || typeof da['能量值'] !== 'object') da['能量值'] = {};
+                    var epO = da['能量值'];
+                    var epCur = num(epO['当前'], 0);
+                    epO['最大'] = calc.epMax;
+                    if (epCur > calc.epMax || epO['当前'] === undefined || epO['当前'] === null) epO['当前'] = calc.epMax;
+                    mxSaveStatData(sd, msgId);
+                    if (typeof window !== 'undefined' && typeof window.__mxRefreshPseudo === 'function') { try { window.__mxRefreshPseudo(); } catch (eRf) {} }
+                } catch (eSync) { console.error('[mx-derived] 衍生属性同步失败', eSync); }
+            }
+
             /* ---------- VIP 声望 ---------- */
             function mxVipInfo() {
                 var v = mxChatGet()._mxVip;
@@ -2892,12 +2943,14 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 if (typeof eb['神秘防御'] !== 'number') eb['神秘防御'] = 0;
                 if (typeof eb['暴击率'] !== 'number') eb['暴击率'] = 0;
                 if (typeof eb['移动速度'] !== 'number') eb['移动速度'] = 0;
+                if (typeof eb['生命值上限'] !== 'number') eb['生命值上限'] = 0;
+                if (typeof eb['魔力上限'] !== 'number') eb['魔力上限'] = 0;
                 return eb;
             }
             function mxRecalcEquipBonus(sd) {
                 try {
                     var eb = mxEquipBonus(sd);
-                    eb['物理防御'] = 0; eb['神秘防御'] = 0; eb['暴击率'] = 0; eb['移动速度'] = 0;
+                    eb['物理防御'] = 0; eb['神秘防御'] = 0; eb['暴击率'] = 0; eb['移动速度'] = 0; eb['生命值上限'] = 0; eb['魔力上限'] = 0;
                     var eqList = mxEquipList(sd);
                     var items = getRaw(sd, '背包与商城.背包.物品列表', {}) || {};
                     Object.keys(eqList).forEach(function (slot) {
@@ -2911,19 +2964,29 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                             if (dt === '魔法' || dt === '真实' || dt === '法术') eb['神秘防御'] += armor;
                             else eb['物理防御'] += armor;
                         }
+                        /* 特殊效果兼容 object/string 两种形态；属性提升参与上限公式，直接给上限的文本也解析 */
                         var eff = getValue(eq, '特殊效果', null);
-                        var boost = (eff && typeof eff === 'object') ? String(eff['属性提升'] || eff['属性'] || '') : '';
+                        var effTexts = [];
+                        if (eff && typeof eff === 'object' && !Array.isArray(eff)) {
+                            Object.keys(eff).forEach(function (k) { effTexts.push(String(eff[k] || '')); });
+                        } else if (eff !== null && eff !== undefined) { effTexts.push(String(eff)); }
+                        var effAll = effTexts.join('；');
+                        var boost = (eff && typeof eff === 'object' && !Array.isArray(eff)) ? String(eff['属性提升'] || eff['属性'] || '') : effAll;
                         if (boost) {
                             var ms = boost.match(/(力量|敏捷|体质|智力|精神|魅力)\s*[+＋]\s*(\d+(?:\.\d+)?)/g) || [];
                             ms.forEach(function (seg) {
                                 var mm = seg.match(/(力量|敏捷|体质|智力|精神|魅力)\s*[+＋]\s*(\d+(?:\.\d+)?)/);
                                 if (!mm) return;
                                 var attr = mm[1], val = parseFloat(mm[2]) || 0;
-                                if (attr === '体质') eb['物理防御'] += Math.floor(val / 2);
-                                else if (attr === '精神') eb['神秘防御'] += Math.floor(val / 2);
+                                if (attr === '体质') { eb['物理防御'] += Math.floor(val / 2); eb['生命值上限'] += val * 10; }
+                                else if (attr === '精神') { eb['神秘防御'] += Math.floor(val / 2); eb['魔力上限'] += val * 2; }
                                 else if (attr === '敏捷') { eb['暴击率'] += val; eb['移动速度'] += Math.floor(val / 5); }
                             });
                         }
+                        var hpAdd = effAll.match(/生命(?:值)?上限\s*[+＋]\s*(\d+(?:\.\d+)?)/);
+                        if (hpAdd) eb['生命值上限'] += parseFloat(hpAdd[1]) || 0;
+                        var epAdd = effAll.match(/(?:魔力|能量)上限\s*[+＋]\s*(\d+(?:\.\d+)?)/);
+                        if (epAdd) eb['魔力上限'] += parseFloat(epAdd[1]) || 0;
                     });
                     if (eb['暴击率'] > 100) eb['暴击率'] = 100;
                     if (eb['暴击率'] < 0) eb['暴击率'] = 0;
@@ -4705,6 +4768,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                         if (window.__mxDebug) console.log('[mx-longpress] messageId is null, long press disabled');
                     }
                 }
+                mxSyncDerivedToVars(); /* 衍生属性（生命/魔力上限）持续自动计算并回写 MVU */
                 var sd = getStatData();
                 if (sd) {
                     var sig;
