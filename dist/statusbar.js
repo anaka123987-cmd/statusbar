@@ -1339,7 +1339,15 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     attr('通关副本', getValue(d, '个人档案.履历数据.通关副本数', 0)) +
                     '</div></div>';
             }
-            var questState = { list: [] };
+            var questState = { list: [], openQ: null };
+
+            /* 任务详情面板内容（点击与重渲染共用）：openQ 记录选中索引+任务名，重渲染后仅当选中任务仍存在时保留面板 */
+            function mxQuestDetailHtml(it) {
+                return '<button class="neb-detail-close" id="neb-quest-close">×</button><div class="neb-card-title">任务详情</div>' +
+                    kv('任务名称', getValue(it, '任务名称')) +
+                    kv('难度', getValue(it, '难度')) +
+                    kv('进度', getValue(it, '进度百分比'));
+            }
 
             function renderQuest(d) {
                 var groups = getRaw(d, '任务与日志.任务列表.分组', []);
@@ -1372,8 +1380,13 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     });
                 }
                 if (!groupHtml) groupHtml = '<div class="neb-empty">暂无任务</div>';
+                var detailHtml = '';
+                if (questState.openQ && questState.list[questState.openQ.idx] &&
+                    getValue(questState.list[questState.openQ.idx], '任务名称') === questState.openQ.name) {
+                    detailHtml = mxQuestDetailHtml(questState.list[questState.openQ.idx]);
+                }
                 return '<div class="neb-card"><div class="neb-card-title">任务列表</div>' + groupHtml + '</div>' +
-                    '<div class="neb-card neb-detail" id="neb-quest-detail"></div>';
+                    '<div class="neb-card neb-detail' + (detailHtml ? ' show' : '') + '" id="neb-quest-detail">' + detailHtml + '</div>';
             }
 
             function renderWorld(d) {
@@ -4073,7 +4086,6 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
             }
 
             function bindDynamic() {
-                var qd = document.getElementById('neb-quest-detail');
                 var pq = document.getElementById('page-quest');
                 if (pq && !pq.dataset.mxqBound) {
                     pq.dataset.mxqBound = '1';
@@ -4083,15 +4095,18 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                             pq.querySelectorAll('.neb-list-item').forEach(function(x) { x.classList.remove(
                                 'active'); });
                             it.classList.add('active');
-                            if (qd) { qd.innerHTML =
-                                    '<button class="neb-detail-close" id="neb-quest-close">×</button><div class="neb-card-title">任务详情</div>' +
-                                    kv('任务名称', getValue(questState.list[+it.dataset.q], '任务名称')) +
-                                    kv('难度', getValue(questState.list[+it.dataset.q], '难度')) +
-                                    kv('进度', getValue(questState.list[+it.dataset.q], '进度百分比'));
-                                qd.classList.add('show'); }
+                            var qi = +it.dataset.q;
+                            questState.openQ = { idx: qi, name: getValue(questState.list[qi], '任务名称') };
+                            /* 点击时现取面板：任务页重渲染会重建 #neb-quest-detail，闭包捕获旧节点会把详情写进死节点 */
+                            var qd = document.getElementById('neb-quest-detail');
+                            if (qd) { qd.innerHTML = mxQuestDetailHtml(questState.list[qi]); qd.classList.add('show'); }
                             return;
                         }
-                        if (e.target.id === 'neb-quest-close' && qd) { qd.classList.remove('show'); }
+                        if (e.target.id === 'neb-quest-close') {
+                            questState.openQ = null;
+                            var qd2 = document.getElementById('neb-quest-detail');
+                            if (qd2) qd2.classList.remove('show');
+                        }
                     });
                 }
                 var bd = document.getElementById('neb-bag-detail');
