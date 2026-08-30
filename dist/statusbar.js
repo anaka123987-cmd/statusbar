@@ -2766,13 +2766,16 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     if (!da['生命值'] || typeof da['生命值'] !== 'object') da['生命值'] = {};
                     var hpO = da['生命值'];
                     var hpCur = num(hpO['当前'], 0);
+                    /* 原本满值时跟随新上限：体质/精神变化、装备增减后，满状态仍保持满；只有确实掉过（受伤/战斗消耗）才保留当前值 */
+                    var hpWasFull = (hpO['当前'] !== undefined && hpO['当前'] !== null && hpMaxOld > 0 && hpCur === hpMaxOld);
                     hpO['最大'] = calc.hpMax;
-                    if (hpCur > calc.hpMax || hpO['当前'] === undefined || hpO['当前'] === null) hpO['当前'] = calc.hpMax;
+                    if (hpCur > calc.hpMax || hpO['当前'] === undefined || hpO['当前'] === null || hpWasFull) hpO['当前'] = calc.hpMax;
                     if (!da['能量值'] || typeof da['能量值'] !== 'object') da['能量值'] = {};
                     var epO = da['能量值'];
                     var epCur = num(epO['当前'], 0);
+                    var epWasFull = (epO['当前'] !== undefined && epO['当前'] !== null && epMaxOld > 0 && epCur === epMaxOld);
                     epO['最大'] = calc.epMax;
-                    if (epCur > calc.epMax || epO['当前'] === undefined || epO['当前'] === null) epO['当前'] = calc.epMax;
+                    if (epCur > calc.epMax || epO['当前'] === undefined || epO['当前'] === null || epWasFull) epO['当前'] = calc.epMax;
                     mxSaveStatData(sd, msgId);
                     if (typeof window !== 'undefined' && typeof window.__mxRefreshPseudo === 'function') { try { window.__mxRefreshPseudo(); } catch (eRf) {} }
                 } catch (eSync) { console.error('[mx-derived] 衍生属性同步失败', eSync); }
