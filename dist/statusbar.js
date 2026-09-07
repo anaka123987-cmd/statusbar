@@ -319,9 +319,9 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 while (i < lines.length) {
                     var t = lines[i].trim();
                     if (!t) { i++; continue; }
-                    if (/^```/.test(t)) {                       /* 围栏代码块 */
+                    if (/^\x60{3}/.test(t)) {                   /* 围栏代码块（\x60=反引号：内联版脚本内禁用字面三反引号，否则会提前终止酒馆的 html 代码块提取） */
                         var buf = []; i++;
-                        while (i < lines.length && !/^```/.test(lines[i].trim())) { buf.push(lines[i]); i++; }
+                        while (i < lines.length && !/^\x60{3}/.test(lines[i].trim())) { buf.push(lines[i]); i++; }
                         i++;
                         out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>');
                         continue;
@@ -348,7 +348,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                         continue;
                     }
                     var para = [t]; i++;                         /* 段落：连续普通行合并 */
-                    while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|>|[-*+]\s|\d{1,3}[.、)](?!\d)|```|(-{3,}|\*{3,}|_{3,})$)/.test(lines[i].trim())) { para.push(lines[i].trim()); i++; }
+                    while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|>|[-*+]\s|\d{1,3}[.、)](?!\d)|\x60{3}|(-{3,}|\*{3,}|_{3,})$)/.test(lines[i].trim())) { para.push(lines[i].trim()); i++; }
                     out.push('<p>' + mxInline(esc(para.join('\n'))).replace(/\n/g, '<br>') + '</p>');
                 }
                 return out.join('');
