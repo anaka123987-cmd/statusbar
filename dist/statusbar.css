@@ -4397,7 +4397,26 @@ body.mx-started .mx-overlay{display:none!important}
 /* 输入控件占满但不超出 */
 #mx-create-overlay.mx-m input,#mx-create-overlay.mx-m select,#mx-create-overlay.mx-m textarea{max-width:100%}
 
+/* ===== v1.3.8 正文 markdown 元素样式（配合 renderMarkdown 轻量渲染） ===== */
+#mx-console .mx-content-box h2,#mx-console .mx-content-box h3,#mx-console .mx-content-box h4,#mx-console .mx-content-box h5{margin:14px 0 8px;color:#2A2640;line-height:1.4;letter-spacing:.02em}
+#mx-console .mx-content-box h2{font-size:1.25em}
+#mx-console .mx-content-box h3{font-size:1.12em}
+#mx-console .mx-content-box h4{font-size:1.02em}
+#mx-console .mx-content-box h5{font-size:.95em;color:#6B6578}
+#mx-console .mx-content-box h2:first-child,#mx-console .mx-content-box h3:first-child{margin-top:0}
+#mx-console .mx-content-box ul,#mx-console .mx-content-box ol{margin:0 0 12px;padding-left:1.4em}
+#mx-console .mx-content-box li{margin:0 0 4px}
+#mx-console .mx-content-box blockquote{margin:0 0 12px;padding:8px 14px;border-left:3px solid #5B9A8B;border-radius:0 12px 12px 0;background:rgba(91,154,139,.07);color:#4a4560}
+#mx-console .mx-content-box blockquote p{margin:0}
+#mx-console .mx-content-box code{padding:1px 6px;border-radius:6px;background:rgba(42,38,64,.06);font-family:Consolas,Menlo,monospace;font-size:.9em;color:#2A2640}
+#mx-console .mx-content-box pre{margin:0 0 12px;padding:12px 14px;border-radius:12px;background:rgba(42,38,64,.05);overflow-x:auto;-webkit-overflow-scrolling:touch}
+#mx-console .mx-content-box pre code{padding:0;background:none;font-size:.88em;line-height:1.6;white-space:pre}
+#mx-console .mx-content-box hr{margin:14px 0;border:0;border-top:1px solid rgba(42,38,64,.12)}
+#mx-console .mx-content-box a{color:#5B9A8B;text-decoration:underline;text-underline-offset:2px}
+#mx-console .mx-content-box strong{color:#2A2640}
+#mx-console .mx-content-box del{opacity:.6}
+
 /* 版本角标（用于确认客户端实际加载的版本；data-diag 由视口纠偏脚本写入：
    w=量得视口宽 s=屏幕物理短边 t/m=触屏/鼠标 vp=视口触发 dev=物理触发 off=未竖排） */
-#mx-title-overlay .mx-kicker span::after{content:" · v1.3.7" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
-#mx-create-overlay .mx-logo span::after{content:" · v1.3.7" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
+#mx-title-overlay .mx-kicker span::after{content:" · v1.3.8" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}
+#mx-create-overlay .mx-logo span::after{content:" · v1.3.8" attr(data-diag);font-size:10px;letter-spacing:.05em;opacity:.55}

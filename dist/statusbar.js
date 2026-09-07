@@ -296,17 +296,67 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                     .filter(function(s) { return s.length > 0; });
             }
 
-            /* ===== 渲染正文 ===== */
+            /* ===== v1.3.8 渲染正文：markdown 轻量渲染 + HTML 注释剥离 ===== */
+            function mxStripComments(s) {
+                return String(s == null ? '' : s)
+                    .replace(/<!--[\s\S]*?-->/g, '')      /* 完整注释 */
+                    .replace(/<!--[\s\S]*$/g, '');        /* 流式/输出中未闭合的半截注释 */
+            }
+            /* 行内 markdown：必须在 esc() 之后调用（输入已无裸 <>&"），先转义再替换防注入 */
+            function mxInline(s) {
+                return String(s)
+                    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+                    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+                    .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+                    .replace(/~~([^~\n]+)~~/g, '<del>$1</del>')
+                    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+            }
+            function renderMarkdown(text) {
+                var src = mxStripComments(String(text == null ? '' : text)).replace(/\r\n?/g, '\n').trim();
+                if (!src) return '';
+                var lines = src.split('\n');
+                var out = [], i = 0;
+                while (i < lines.length) {
+                    var t = lines[i].trim();
+                    if (!t) { i++; continue; }
+                    if (/^```/.test(t)) {                       /* 围栏代码块 */
+                        var buf = []; i++;
+                        while (i < lines.length && !/^```/.test(lines[i].trim())) { buf.push(lines[i]); i++; }
+                        i++;
+                        out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>');
+                        continue;
+                    }
+                    if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) { out.push('<hr>'); i++; continue; }
+                    var h = t.match(/^(#{1,4})\s+(.*)$/);       /* 标题：# 映射 h2~h5 */
+                    if (h) { var lv = Math.min(h[1].length + 1, 5); out.push('<h' + lv + '>' + mxInline(esc(h[2])) + '</h' + lv + '>'); i++; continue; }
+                    if (/^>\s?/.test(t)) {                      /* 引用块 */
+                        var q = [];
+                        while (i < lines.length && /^>\s?/.test(lines[i].trim())) { q.push(lines[i].trim().replace(/^>\s?/, '')); i++; }
+                        out.push('<blockquote>' + mxInline(esc(q.join('\n'))).replace(/\n/g, '<br>') + '</blockquote>');
+                        continue;
+                    }
+                    if (/^[-*+]\s+/.test(t)) {                   /* 无序列表 */
+                        var ul = [];
+                        while (i < lines.length && /^[-*+]\s+/.test(lines[i].trim())) { ul.push('<li>' + mxInline(esc(lines[i].trim().replace(/^[-*+]\s+/, ''))) + '</li>'); i++; }
+                        out.push('<ul>' + ul.join('') + '</ul>');
+                        continue;
+                    }
+                    if (/^\d{1,3}[.、)](?!\d)/.test(t)) {        /* 有序列表（兼容中文顿号与无空格写法；(?!\d) 防日期/小数误判） */
+                        var ol = [];
+                        while (i < lines.length && /^\d{1,3}[.、)](?!\d)/.test(lines[i].trim())) { ol.push('<li>' + mxInline(esc(lines[i].trim().replace(/^\d{1,3}[.、)](?!\d)\s*/, ''))) + '</li>'); i++; }
+                        out.push('<ol>' + ol.join('') + '</ol>');
+                        continue;
+                    }
+                    var para = [t]; i++;                         /* 段落：连续普通行合并 */
+                    while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|>|[-*+]\s|\d{1,3}[.、)](?!\d)|```|(-{3,}|\*{3,}|_{3,})$)/.test(lines[i].trim())) { para.push(lines[i].trim()); i++; }
+                    out.push('<p>' + mxInline(esc(para.join('\n'))).replace(/\n/g, '<br>') + '</p>');
+                }
+                return out.join('');
+            }
             function renderContent(rawText) {
                 var box = document.getElementById('mx-content-box');
                 if (!box) return;
-                var content = extractContent(rawText).replace(/\r\n?/g, '\n').trim();
-                var paras = content.split(/\n{2,}/)
-                    .map(function(p) { return p.trim(); })
-                    .filter(function(p) { return p.length > 0; })
-                    .map(function(p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; })
-                    .join('');
-                box.innerHTML = paras;
+                box.innerHTML = renderMarkdown(extractContent(rawText));
             }
 
             /* ===== 渲染选项 ===== */
@@ -4932,7 +4982,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
   function currentMvu(){try{return Mvu.getMvuData({type:'message',message_id:'latest'})}catch(e){return {stat_data:{}}}}
   function stripThinking(raw){return String(raw||'').replace(/<think(?:ing)?[^>]*>[\s\S]*?<\/think(?:ing)?>/gi,'').replace(/<think(?:ing)?[^>]*>[\s\S]*$/gi,'').trim()}
   function normalize(raw){var text=stripThinking(raw);if(!/<(?:content|maintext)>[\s\S]*?<\/(?:content|maintext)>/i.test(text))text='<content>'+text+'</content>';if(!/<option>[\s\S]*?<\/option>/i.test(text))text+='\n<option>1.继续</option>';return text}
-  function stream(text){var box=node('mx-content-box');if(!box)return;var clean=stripThinking(text),match=clean.match(/<(?:content|maintext)>([\s\S]*?)(?:<\/(?:content|maintext)>|$)/i);box.textContent=(match?match[1]:clean).replace(/^\s+/,'').trimEnd()}
+  function stream(text){var box=node('mx-content-box');if(!box)return;var clean=stripThinking(text),match=clean.match(/<(?:content|maintext)>([\s\S]*?)(?:<\/(?:content|maintext)>|$)/i);var shown=(match?match[1]:clean).replace(/<!--[\s\S]*?(?:-->|$)/g,'').replace(/^\s+/,'').trimEnd();box.textContent=shown}
   window.submitMxAction=async function(text,source){
     text=String(text||'').trim();if(!text||window.__mxPseudoBusy)return;
     if(typeof createChatMessages!=='function'||typeof generate!=='function'){setState('酒馆助手接口不可用');return}
