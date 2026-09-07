@@ -1,4 +1,56 @@
 
+/* ===== v1.3.10 诊断探针（临时，定位内联版数据链路失效用）：
+   记录三个时点的酒馆 API 可用性（脚本同步执行时 exec / init 完成时 / 实时 now）
+   + 数据链路状态（消息对象、正文原文长度、渲染输出长度、错误），
+   悬浮角标固定显示在左下角（pointer-events:none 不挡交互），手机截图即可回收。 ===== */
+(function(){
+  window.__mxDiag = window.__mxDiag || {
+    apiAtExec: null, apiAfterInit: null, apiLive: null,
+    waitGlobal: 'pending', initRan: false, updateCount: 0,
+    rawTextLen: -1, renderLen: -1, msgObj: 'n/a', errors: []
+  };
+  function probe(){
+    var r = {};
+    r.gc = typeof getChatMessages;
+    r.gli = typeof getLastMessageId;
+    r.gci = typeof getCurrentMessageId;
+    r.wgi = typeof waitGlobalInitialized;
+    try { r.mvu = (typeof Mvu === 'undefined') ? 'undef' : (Mvu ? 'obj' : 'falsy'); } catch (e) { r.mvu = 'err'; }
+    try { r.p = typeof window.parent.getChatMessages; } catch (e) { r.p = 'no-parent'; }
+    r.ifr = (window.parent === window) ? 'top' : 'iframe';
+    return r;
+  }
+  window.__mxProbe = probe;
+  window.__mxDiag.apiAtExec = probe();
+  /* 加载模式识别：存在超 50KB 的内联 script = 完整内联版；全部外链 = CDN 版 */
+  var mode = 'cdn';
+  try {
+    var ss = document.querySelectorAll('script');
+    for (var si = 0; si < ss.length; si++) {
+      if (!ss[si].src && ss[si].textContent && ss[si].textContent.length > 50000) { mode = 'inline'; break; }
+    }
+  } catch (e) {}
+  window.__mxDiag.mode = mode;
+  var el = document.createElement('div');
+  el.id = 'mx-diag-badge';
+  el.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:2147483647;font:10px/1.5 Consolas,Menlo,monospace;background:rgba(10,10,20,.82);color:#7CFC98;padding:5px 8px;border-radius:6px;pointer-events:none;white-space:pre;max-width:96vw;overflow:hidden;';
+  (document.body || document.documentElement).appendChild(el);
+  function s(v){ return v === 'function' ? 'fn' : String(v); }
+  function fmt(){
+    var d = window.__mxDiag, p1 = d.apiAtExec || {}, p2 = d.apiAfterInit || {}, pl = d.apiLive || {};
+    el.textContent =
+      'MXD v1.3.10 ' + d.mode + ' ' + p1.ifr +
+      '\nexec  gc=' + s(p1.gc) + ' gli=' + s(p1.gli) + ' mvu=' + s(p1.mvu) + ' p.gc=' + s(p1.p) +
+      '\ninit  ' + (d.initRan ? 'ran' : 'PENDING') + ' wg=' + d.waitGlobal + ' gc=' + s(p2.gc) + ' gli=' + s(p2.gli) +
+      '\nnow   gc=' + s(pl.gc) + ' gli=' + s(pl.gli) + ' mvu=' + s(pl.mvu) +
+      '\nupd ' + d.updateCount + ' raw ' + (d.rawTextLen < 0 ? 'n/a' : d.rawTextLen) + ' render ' + (d.renderLen < 0 ? 'n/a' : d.renderLen) +
+      '\nmsg ' + d.msgObj +
+      '\nerr ' + (d.errors.length ? d.errors[d.errors.length - 1].slice(0, 90) : 'none');
+  }
+  fmt();
+  setInterval(function(){ window.__mxDiag.apiLive = probe(); fmt(); }, 800);
+})();
+
 /* ===== v1.3.5 视口纠偏：酒馆沙盒 iframe 的布局视口可能固定 980px——媒体/容器查询与
       min(innerWidth, visualViewport.width) 全部说谎（visualViewport 报的也是 CSS 像素，
       布局视口钉死时它同样≈980，v1.3.4 由此失效）。
@@ -219,6 +271,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
 
             function getRawText() {
                 var m = getCurrentMsgObj();
+                try { if (window.__mxDiag) window.__mxDiag.msgObj = m ? ('id' + m.message_id + ' len' + String(m.message || m.mes || '').length) : 'null'; } catch (eD) {}
                 if (m) {
                     var text = m.message || m.mes || '';
                     var messageId = Number(m.message_id);
@@ -357,6 +410,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
                 var box = document.getElementById('mx-content-box');
                 if (!box) return;
                 box.innerHTML = renderMarkdown(extractContent(rawText));
+                try { if (window.__mxDiag) window.__mxDiag.renderLen = box.innerHTML.length; } catch (eD) {}
             }
 
             /* ===== 渲染选项 ===== */
@@ -4815,6 +4869,7 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
             /* ===== 主轮询 ===== */
             function updateDisplay() {
                 var rawText = getRawText();
+                try { if (window.__mxDiag) { window.__mxDiag.updateCount++; window.__mxDiag.rawTextLen = (rawText || '').length; } } catch (eD) {}
                 if (rawText !== lastRawText) {
                     lastRawText = rawText;
                     renderContent(rawText);
@@ -4885,15 +4940,22 @@ function init(){fill('identitySelect',identities);fill('skillSelect',skills);fil
             })();
 
             function init() {
-                bindLongPress();
-                bindClickOutside();
-                updateDisplay();
-                setInterval(updateDisplay, POLL_MS);
-                ensureCombatMount();
+                try {
+                    if (window.__mxDiag) { window.__mxDiag.initRan = true; window.__mxDiag.apiAfterInit = window.__mxProbe ? window.__mxProbe() : null; }
+                    bindLongPress();
+                    bindClickOutside();
+                    updateDisplay();
+                    setInterval(updateDisplay, POLL_MS);
+                    ensureCombatMount();
+                } catch (e) {
+                    if (window.__mxDiag) { try { window.__mxDiag.errors.push('init: ' + ((e && e.message) || String(e))); } catch (e2) {} }
+                    throw e;
+                }
             }
             if (typeof waitGlobalInitialized === 'function') {
-                waitGlobalInitialized('Mvu').then(init).catch(function() { init(); });
-            } else { setTimeout(init, 300); }
+                waitGlobalInitialized('Mvu').then(function(){ if (window.__mxDiag) window.__mxDiag.waitGlobal = 'ok'; init(); })
+                    .catch(function() { if (window.__mxDiag) window.__mxDiag.waitGlobal = 'reject'; init(); });
+            } else { if (window.__mxDiag) window.__mxDiag.waitGlobal = 'nofn'; setTimeout(init, 300); }
         
             /* ====== 中小屏幕适配（增量；桌面端不触发）====== */
             var __mxMobileDone = false;
