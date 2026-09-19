@@ -150,7 +150,7 @@
     function powerOf(sd, skill) { var s = SKILLS[skill]; return attrOf(sd, s ? s.attr : '智力'); }
     function gradeOf(roll, margin) {
         if (roll <= 5) return 5;
-        if (roll >= 96) return 0;
+        if (roll >= 96 && margin < 0) return 0;
         if (margin >= 40) return 5;
         if (margin >= 15) return 4;
         if (margin >= 5) return 3;
@@ -162,7 +162,6 @@
         var n = 0;
         for (var r = 1; r <= 100; r++) {
             if (r <= 5) { n++; continue; }
-            if (r >= 96) continue;
             if (r + power >= line) n++;
         }
         return n;
