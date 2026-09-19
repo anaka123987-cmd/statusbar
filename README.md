@@ -31,6 +31,10 @@ https://www.jsdelivr.com/tools/purge 手动清缓存。
 
 ## 历史版本
 
+- v1.3.13：修复创建角色后商店积分不更新（伪楼层期间读到 0 层 InitVar 旧值）
+  - 根因：创建用 createChatMessages(refresh:'none')，iframe 仍停在 0 层；主页走 getStatData 倒序扫描取到新楼层，商店 mxFreshStatData 钉死读当前楼层 → 读到 InitVar 旧积分
+  - 新增 mx2EffFloor()：取 cur..last 区间内最新一条带 stat_data 的楼层（上限 30 层，无则回退 cur）；商店读取/购买写回/撤回判定统一改用有效楼层
+  - 创建时若 InitVar 已定义 商城.积分余额 则同步镜像，双源从第 1 层起一致
 - v1.3.12：移除临时诊断角标 + 灾骰规则修正
   - 彻底移除 v1.3.10 排查数据链路用的左下角黑色诊断角标（mx-diag-badge）及全部探针埋点
   - 骰值 96-100 不再无条件大失败：未过难度线（骰值+判定力 < 难度线）才判大失败，过线按裕度正常判档；神骰 ≤5 大成功不变；成功率统计同步修正
